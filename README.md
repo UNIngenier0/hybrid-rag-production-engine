@@ -2,12 +2,12 @@
 
 > Production-grade Retrieval-Augmented Generation over internal documents: **hybrid search** (dense vectors + BM25), **cross-encoder reranking**, **verified citations**, and **quantitative evaluation**.
 
-![Status](https://img.shields.io/badge/status-design%20phase-blue)
+![Status](https://img.shields.io/badge/status-phase%201%20implemented-blue)
 ![Python](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white)
 ![Docker](https://img.shields.io/badge/deploy-Docker%20Compose-2496ED?logo=docker&logoColor=white)
 
-> **Project status: design phase.** This README is the architecture specification for the system. Nothing described here is implemented yet; the [Roadmap](#5-roadmap) tracks what gets built and in which order. Metrics in [Quality Targets](#4-quality-targets) are initial goals, not measured results.
+> **Project status: Phase 1 implemented.** This README is the architecture specification for the system. Today the repository contains the project skeleton: the API with health endpoints, the Docker Compose stack for Qdrant, PostgreSQL and Redis, and CI (see [Getting Started](#6-getting-started)). Everything else described here is design; the [Roadmap](#5-roadmap) tracks what gets built and in which order. Metrics in [Quality Targets](#4-quality-targets) are initial goals, not measured results.
 
 ## Table of Contents
 
@@ -25,7 +25,8 @@
 3. [Key Design Decisions](#3-key-design-decisions)
 4. [Quality Targets](#4-quality-targets)
 5. [Roadmap](#5-roadmap)
-6. [Further Reading](#6-further-reading)
+6. [Getting Started](#6-getting-started)
+7. [Further Reading](#7-further-reading)
 
 ---
 
@@ -110,6 +111,7 @@ The failures below are the ones that appear after a RAG demo meets real document
 | Dataset loading | PyArrow / Hugging Face `datasets` (Parquet) | Streams the 1.4 GB corpus in batches without loading it into memory |
 | Evaluation | RAGAS, custom retrieval metrics and the EnterpriseRAG-Bench harness | Standard generation metrics, exact retrieval measurements and a public, reproducible benchmark |
 | Deployment | Docker, Docker Compose | One-command local environment, same images for production |
+| Tooling | uv, Ruff, mypy, pytest, GitHub Actions | Locked dependencies, linting, strict typing, tests and CI |
 | Observability | Structured logs, Prometheus metrics (Grafana optional) | Per-stage latency and quality signals |
 
 ### 1.5 Design Principles
@@ -422,13 +424,13 @@ The `api` container is attached to both networks: it is the only service reachab
 |---|---|---|---|---|
 | `api` | Built from the project `Dockerfile` (multi-stage, non-root user) | `qdrant`, `postgres`, `redis` (healthy) | `GET /health/ready` (checks the three dependencies) | `uploads`, `model_cache` |
 | `worker` | Same image as `api`, different command | `qdrant`, `postgres`, `redis` (healthy) | Redis heartbeat key refreshed by the worker loop | `uploads`, `model_cache`, `data` (dataset, read-only) |
-| `qdrant` | Official `qdrant/qdrant` image | none | HTTP readiness endpoint | `qdrant_storage` |
-| `postgres` | Official `postgres` image (alpine variant) | none | `pg_isready` | `pg_data` |
-| `redis` | Official `redis` image (alpine variant) | none | `redis-cli ping` | `redis_data` |
+| `qdrant` | `qdrant/qdrant:v1.19.2` | none | HTTP `/readyz` | `qdrant_storage` |
+| `postgres` | `postgres:18.6-alpine` | none | `pg_isready` | `pg_data` |
+| `redis` | `redis:8.10.2-alpine` | none | `redis-cli ping` | `redis_data` |
 | `prometheus` (optional) | Official `prom/prometheus` image | `api` | HTTP `/-/healthy` | `prometheus_data` |
 | `grafana` (optional) | Official `grafana/grafana` image | `prometheus` | HTTP `/api/health` | `grafana_data` |
 
-Image tags are pinned to exact versions when the Compose file is written.
+Image tags are pinned to exact versions. The Phase 1 Compose file runs `api`, `qdrant`, `postgres` and `redis`; `worker` arrives in Phase 2 and the observability profile in Phase 6.
 
 #### 2.2.2 Services Configuration
 
@@ -436,7 +438,7 @@ Image tags are pinned to exact versions when the Compose file is written.
 |---|---|---|---|---|
 | `api` | 8000 | 8000 | `edge`, `backend` | REST API, OpenAPI docs at `/docs`, metrics at `/metrics` |
 | `worker` | none | none | `backend` | Background ingestion jobs |
-| `qdrant` | none (6333 optional for local debugging) | 6333 REST, 6334 gRPC | `backend` | Vector and BM25 index |
+| `qdrant` | none | 6333 REST, 6334 gRPC | `backend` | Vector and BM25 index |
 | `postgres` | none | 5432 | `backend` | Metadata and audit log |
 | `redis` | none | 6379 | `backend` | Queue and cache |
 | `prometheus` | 9090 | 9090 | `backend` | Metrics (profile `observability`) |
@@ -444,7 +446,7 @@ Image tags are pinned to exact versions when the Compose file is written.
 
 #### 2.2.3 Configuration
 
-All configuration comes from environment variables documented in `.env.example`; secrets are never baked into images. The main groups:
+All configuration comes from environment variables; secrets are never baked into images, and `.env` is git-ignored (`.env.example` is the template). Phase 1 reads `LOG_LEVEL`, `QDRANT_URL`, `DATABASE_URL`, `REDIS_URL` and `HEALTH_CHECK_TIMEOUT_SECONDS`. The planned groups, added as each feature lands:
 
 - **Providers**: `LLM_PROVIDER`, `LLM_MODEL`, `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`, `EMBEDDING_MODEL`, `RERANKER_MODEL`.
 - **Retrieval**: `DENSE_TOP_K`, `SPARSE_TOP_K`, `FUSION_TOP_K`, `RERANK_TOP_K`, `RRF_K`, `ABSTAIN_THRESHOLD`.
@@ -503,15 +505,17 @@ flowchart TD
 
 `observability` (logging, tracing, metrics) is a cross-cutting module used by every layer and is omitted from the diagram to keep it readable.
 
-**Planned repository layout**
+**Repository layout** (the target; a directory appears when the roadmap phase that needs it lands, and today the code lives in `api`, `adapters`, `core` and `observability`)
 
 ```text
 hybrid-rag-production-engine/
 ├── README.md
 ├── pyproject.toml
+├── uv.lock
 ├── Dockerfile
 ├── docker-compose.yml
 ├── .env.example
+├── .github/workflows/ci.yml
 ├── docs/
 │   └── rag-primer.html          # What is RAG: a short guide
 ├── src/rag_engine/
@@ -612,7 +616,7 @@ Initial goals, to be revised after the first measured baseline.
 | Phase | Goal | Main deliverables | Status |
 |---|---|---|---|
 | 0 | Design and documentation | Architecture README, RAG primer, dataset selection, review of the benchmark's `methodology.md` | In progress |
-| 1 | Project skeleton | FastAPI app, settings, Docker Compose with Qdrant, PostgreSQL and Redis, health endpoints, lint and test CI | Planned |
+| 1 | Project skeleton | FastAPI app, settings, Docker Compose with Qdrant, PostgreSQL and Redis, health endpoints, structured JSON logs with request IDs, lint, type-check and test CI | Implemented (CI not yet run on GitHub) |
 | 2 | Ingestion at scale | Parquet dataset connector, dataset profiling (document lengths, chunk counts), source-aware chunking, embeddings, dense and BM25 indexing, idempotent bulk load of the full corpus with checkpoint and resume, sizing report | Planned |
 | 3 | Hybrid retrieval | Dense and BM25 retrievers, RRF fusion, metadata filters, retrieval modes | Planned |
 | 4 | Evaluation harness and reranking | EnterpriseRAG-Bench runner with per-category results, retrieval metrics, cross-encoder reranker, first ablation report, CI regression gate | Planned |
@@ -622,7 +626,54 @@ Initial goals, to be revised after the first measured baseline.
 
 ---
 
-## 6. Further Reading
+## 6. Getting Started
+
+**Prerequisites:** Docker with Compose. For development, [uv](https://docs.astral.sh/uv/), which also installs the pinned Python 3.12.
+
+**Run the stack**
+
+```bash
+cp .env.example .env              # then set POSTGRES_PASSWORD
+docker compose up --build --wait  # API on http://localhost:8000, interactive docs at /docs
+curl http://localhost:8000/health/ready
+```
+
+```json
+{
+  "status": "ready",
+  "checks": {
+    "qdrant":   { "ok": true, "latency_ms": 13.0, "error": null },
+    "postgres": { "ok": true, "latency_ms": 9.8,  "error": null },
+    "redis":    { "ok": true, "latency_ms": 6.7,  "error": null }
+  }
+}
+```
+
+The latencies above are an example of the response shape. Stop the stack with `docker compose down` (add `--volumes` to also delete the stored data).
+
+**Develop and test**
+
+```bash
+uv sync                           # locked dependencies, including the dev tools
+uv run ruff check .               # lint
+uv run ruff format --check .      # formatting
+uv run mypy                       # strict type check
+uv run pytest                     # unit tests, no services needed
+uv run pytest -m integration      # against the running stack from the step above
+```
+
+**What exists today**
+
+| Endpoint | Purpose | Success | Failure |
+|---|---|---|---|
+| `GET /health/live` | The process is up. Checks no dependency, so it never fails because of one | `200 {"status": "ok"}` | none |
+| `GET /health/ready` | Qdrant, PostgreSQL and Redis all answer within `HEALTH_CHECK_TIMEOUT_SECONDS` (2 s by default); probed concurrently | `200`, status `ready` | `503`, status `not_ready`; the failing dependency is named with a short error label, and the details appear only in the server logs |
+
+Every response carries an `X-Request-ID` header: a well-formed client-supplied ID is echoed back and anything else is replaced with a generated one. Logs are JSON lines that include the request ID. The document, query and metrics endpoints described in [2.3.2](#232-functionalities-description) arrive with the roadmap phases that implement them.
+
+---
+
+## 7. Further Reading
 
 - [`docs/rag-primer.html`](docs/rag-primer.html): a short, concise guide to what RAG is, how it works and what matters when building it. Download the repository or open the file locally in a browser to view it.
 - EnterpriseRAG-Bench: [repository](https://github.com/onyx-dot-app/EnterpriseRAG-Bench), [dataset](https://huggingface.co/datasets/onyx-dot-app/EnterpriseRAG-Bench), [leaderboard](https://huggingface.co/spaces/onyx-dot-app/EnterpriseRAG-Bench-Leaderboard) and [paper](https://arxiv.org/abs/2605.05253).

@@ -1,0 +1,42 @@
+import pytest
+from pydantic import ValidationError
+
+from rag_engine.core.config import Settings
+
+
+def test_defaults(settings: Settings) -> None:
+    assert settings.log_level == "INFO"
+    assert settings.qdrant_url == "http://localhost:6333"
+    assert settings.redis_url == "redis://localhost:6379/0"
+    assert settings.health_check_timeout_seconds == 2.0
+
+
+def test_values_come_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@host/db")
+    monkeypatch.setenv("QDRANT_URL", "http://qdrant:6333")
+    monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+
+    loaded = Settings(_env_file=None)
+
+    assert loaded.database_url.get_secret_value() == "postgresql://u:p@host/db"
+    assert loaded.qdrant_url == "http://qdrant:6333"
+    assert loaded.log_level == "DEBUG"
+
+
+def test_database_url_is_required(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
+    with pytest.raises(ValidationError, match="database_url"):
+        Settings(_env_file=None)
+
+
+def test_credentials_do_not_appear_in_repr(settings: Settings) -> None:
+    assert "s3cret" not in repr(settings)
+    assert "s3cret" not in str(settings)
+
+
+def test_timeout_must_be_positive() -> None:
+    with pytest.raises(ValidationError):
+        Settings(
+            _env_file=None, database_url="postgresql://u:p@h/d", health_check_timeout_seconds=0
+        )
