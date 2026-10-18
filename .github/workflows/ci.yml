@@ -15,7 +15,7 @@ concurrency:
 jobs:
   quality:
     name: Lint, types and unit tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.0
@@ -34,7 +34,7 @@ jobs:
 
   stack:
     name: Docker stack smoke test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: quality
     steps:
       - uses: actions/checkout@v7
