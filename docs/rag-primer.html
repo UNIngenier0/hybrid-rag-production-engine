@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAG Primer</title>
+<style>
+  :root {
+    --bg: #fafaf9;
+    --surface: #ffffff;
+    --surface-2: #f2f4f7;
+    --text: #1c1f24;
+    --muted: #5b6470;
+    --border: #dde1e7;
+    --accent: #2457d6;
+    --accent-soft: #e6edfd;
+    --good: #1a7f4b;
+    --good-soft: #e3f4ea;
+    --warn: #a15c00;
+    --warn-soft: #fdf0d9;
+    --code-bg: #eef1f5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101216;
+      --surface: #181b21;
+      --surface-2: #1f232b;
+      --text: #e8eaee;
+      --muted: #9aa3b0;
+      --border: #2a2f38;
+      --accent: #7aa2ff;
+      --accent-soft: #1b2a4d;
+      --good: #5fd08f;
+      --good-soft: #14291f;
+      --warn: #f0b45a;
+      --warn-soft: #302410;
+      --code-bg: #232831;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #101216;
+    --surface: #181b21;
+    --surface-2: #1f232b;
+    --text: #e8eaee;
+    --muted: #9aa3b0;
+    --border: #2a2f38;
+    --accent: #7aa2ff;
+    --accent-soft: #1b2a4d;
+    --good: #5fd08f;
+    --good-soft: #14291f;
+    --warn: #f0b45a;
+    --warn-soft: #302410;
+    --code-bg: #232831;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 40px 16px 72px; }
+
+  header h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 8px; letter-spacing: -0.01em; }
+  header p.lead { font-size: 1.1rem; color: var(--muted); margin: 0 0 20px; max-width: 62ch; }
+
+  nav { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+  nav a {
+    font-size: 0.85rem; padding: 4px 12px; border-radius: 999px;
+    background: var(--surface-2); color: var(--text); text-decoration: none; border: 1px solid var(--border);
+  }
+  nav a:hover { border-color: var(--accent); color: var(--accent); }
+
+  section { margin-top: 48px; scroll-margin-top: 16px; }
+  h2 { font-size: 1.35rem; margin: 0 0 12px; letter-spacing: -0.005em; }
+  h2 .n { color: var(--accent); margin-right: 8px; font-variant-numeric: tabular-nums; }
+  p { margin: 0 0 12px; }
+  ul, ol { margin: 0 0 12px; padding-left: 22px; }
+  li { margin-bottom: 4px; }
+  code { background: var(--code-bg); padding: 1px 6px; border-radius: 4px; font-size: 0.9em; }
+
+  .callout {
+    background: var(--accent-soft); border-left: 4px solid var(--accent);
+    padding: 12px 16px; border-radius: 6px; margin: 16px 0;
+  }
+  .callout.warn { background: var(--warn-soft); border-left-color: var(--warn); }
+  .callout strong:first-child { display: inline-block; margin-right: 4px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin: 16px 0; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .card h3 { font-size: 0.95rem; margin: 0 0 4px; }
+  .card p { font-size: 0.92rem; color: var(--muted); margin: 0; }
+
+  /* Pipeline flows */
+  .lane { margin: 16px 0; }
+  .lane-label { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 8px; }
+  .flow { display: flex; flex-wrap: wrap; gap: 10px 26px; padding: 0; list-style: none; margin: 0; }
+  .step {
+    position: relative; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px; font-size: 0.9rem; margin: 0; line-height: 1.35;
+  }
+  .step small { display: block; color: var(--muted); font-size: 0.78rem; }
+  .step.key { border-color: var(--accent); background: var(--accent-soft); }
+  .step:not(:last-child)::after {
+    content: "\2192"; position: absolute; right: -19px; top: 50%; transform: translateY(-50%); color: var(--muted);
+  }
+  @media (max-width: 560px) {
+    .flow { flex-direction: column; gap: 22px; }
+    .step:not(:last-child)::after { content: "\2193"; right: auto; left: 50%; top: auto; bottom: -21px; transform: translateX(-50%); }
+  }
+
+  /* Tables */
+  .table-scroll { overflow-x: auto; margin: 12px 0 16px; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.92rem; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  th, td { text-align: left; padding: 9px 12px; vertical-align: top; border-bottom: 1px solid var(--border); }
+  th { background: var(--surface-2); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  td:first-child { font-weight: 600; white-space: nowrap; }
+  @media (max-width: 560px) { td:first-child { white-space: normal; } }
+
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; list-style: none; margin: 0 0 12px; }
+  .tags li { margin: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; font-size: 0.9rem; }
+
+  ol.checklist { counter-reset: item; list-style: none; padding-left: 0; }
+  ol.checklist li {
+    counter-increment: item; position: relative; padding: 10px 14px 10px 52px; margin-bottom: 8px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  }
+  ol.checklist li::before {
+    content: counter(item); position: absolute; left: 14px; top: 10px; width: 26px; height: 26px; border-radius: 50%;
+    background: var(--accent); color: #fff; font-size: 0.85rem; font-weight: 700; display: grid; place-items: center;
+  }
+  ol.checklist li strong { display: block; }
+  ol.checklist li span { color: var(--muted); font-size: 0.92rem; }
+
+  footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.88rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>RAG Primer</h1>
+  <p class="lead">What Retrieval-Augmented Generation is, how it works, and the handful of things that decide whether yours works in production.</p>
+  <nav aria-label="Sections">
+    <a href="#what">What &amp; why</a>
+    <a href="#how">How it works</a>
+    <a href="#blocks">Building blocks</a>
+    <a href="#uses">Use cases</a>
+    <a href="#breaks">What breaks</a>
+    <a href="#eval">Evaluation</a>
+    <a href="#checklist">Build checklist</a>
+  </nav>
+</header>
+
+<section id="what">
+  <h2><span class="n">1</span>What it is and why it exists</h2>
+  <p><strong>RAG</strong> gives a language model an <em>open-book exam</em>. Instead of answering from whatever it memorized during training, the system first <strong>retrieves</strong> the most relevant passages from your own documents, then asks the model to <strong>generate</strong> an answer using only those passages.</p>
+  <div class="grid">
+    <div class="card"><h3>Private knowledge</h3><p>The model never saw your internal docs. RAG brings them in at question time.</p></div>
+    <div class="card"><h3>Fewer hallucinations</h3><p>The answer is anchored to real text instead of the model's memory.</p></div>
+    <div class="card"><h3>Always current</h3><p>Update the documents and the answers change. No retraining needed.</p></div>
+    <div class="card"><h3>Verifiable</h3><p>Each claim can point to a source passage a human can check.</p></div>
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Approach</th><th>Good for</th><th>Limitation</th></tr></thead>
+      <tbody>
+        <tr><td>RAG</td><td>Facts from changing, private or large document sets, with sources</td><td>Quality depends on retrieval</td></tr>
+        <tr><td>Fine-tuning</td><td>Teaching style, format or behavior</td><td>Poor at injecting facts; costly to keep up to date; no citations</td></tr>
+        <tr><td>Long context</td><td>One or a few documents that fit in the prompt</td><td>Cost and latency grow with every query; accuracy drops on very long inputs</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="how">
+  <h2><span class="n">2</span>How it works</h2>
+  <p>Two phases: an <strong>offline</strong> phase that prepares the documents, and an <strong>online</strong> phase that runs on every question.</p>
+
+  <div class="lane">
+    <div class="lane-label">Offline: indexing (once per document)</div>
+    <ol class="flow">
+      <li class="step">Documents<small>PDF, DOCX, HTML</small></li>
+      <li class="step">Parse &amp; clean</li>
+      <li class="step key">Chunk<small>split into passages</small></li>
+      <li class="step">Embed + keyword index<small>vectors and BM25</small></li>
+      <li class="step">Store<small>vector database + metadata</small></li>
+    </ol>
+  </div>
+
+  <div class="lane">
+    <div class="lane-label">Online: answering (every question)</div>
+    <ol class="flow">
+      <li class="step">Question</li>
+      <li class="step key">Hybrid retrieve<small>dense + BM25, ~50 candidates</small></li>
+      <li class="step key">Rerank<small>keep best ~5</small></li>
+      <li class="step">Prompt<small>question + numbered passages</small></li>
+      <li class="step">LLM generates</li>
+      <li class="step key">Verify citations</li>
+      <li class="step">Answer + sources</li>
+    </ol>
+  </div>
+
+  <div class="callout"><strong>Key idea:</strong> the LLM is only the last step. If retrieval does not surface the right passage, no model can write the right answer. Most RAG quality work happens before the LLM.</div>
+</section>
+
+<section id="blocks">
+  <h2><span class="n">3</span>The building blocks</h2>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Block</th><th>What it does</th><th>What to know</th></tr></thead>
+      <tbody>
+        <tr><td>Chunking</td><td>Splits documents into passages that get indexed and retrieved</td><td>The biggest quality lever. Too big dilutes meaning; too small loses context. Respect headings and tables, keep metadata (page, section), and consider small chunks for search with their larger parent for context.</td></tr>
+        <tr><td>Embeddings</td><td>Turn text into vectors where similar meaning means nearby points</td><td>Use the same model for documents and queries. Language and domain fit matter. Changing the model means re-indexing everything.</td></tr>
+        <tr><td>Vector database</td><td>Finds the nearest vectors fast (approximate search)</td><td>Needs metadata filtering (by document, date, permissions). Persistence and operations matter more than benchmarks.</td></tr>
+        <tr><td>BM25</td><td>Classic keyword scoring</td><td>Catches exact terms (IDs, error codes, names, acronyms) that embeddings blur.</td></tr>
+        <tr><td>Hybrid search</td><td>Runs dense and BM25 together and merges the rankings</td><td>Use rank-based merging such as <strong>Reciprocal Rank Fusion</strong>; the two scores are not comparable.</td></tr>
+        <tr><td>Reranker</td><td>A cross-encoder reads the query and each candidate together and rescores them</td><td>More accurate but slower, so apply it only to a short candidate list: retrieve wide, rerank, keep few.</td></tr>
+        <tr><td>Prompt &amp; generation</td><td>Gives the LLM the passages and the rules</td><td>Number the passages, instruct the model to use only them, and let it say "I don't know".</td></tr>
+        <tr><td>Citations</td><td>Link each claim to its source</td><td>Do not let the model write the source details. Have it reference passage numbers, then <strong>verify</strong> and resolve them in code.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="uses">
+  <h2><span class="n">4</span>Where it is useful</h2>
+  <ul class="tags">
+    <li>Internal knowledge base Q&amp;A</li>
+    <li>Customer support assistants</li>
+    <li>Legal and compliance search</li>
+    <li>Developer documentation help</li>
+    <li>Research and literature review</li>
+    <li>HR and policy questions</li>
+    <li>Sales and product enablement</li>
+  </ul>
+  <p>The common pattern: a large body of text that changes, that the base model has not seen, and where answers must be <strong>traceable to a source</strong>.</p>
+</section>
+
+<section id="breaks">
+  <h2><span class="n">5</span>What breaks in production</h2>
+  <p>A demo on one clean PDF hides these. Real corpora expose them quickly.</p>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Symptom</th><th>Usual cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td>Exact IDs and codes are not found</td><td>Dense-only retrieval</td><td>Add BM25 (hybrid search)</td></tr>
+        <tr><td>Right passage found but ranked too low</td><td>Coarse similarity ranking</td><td>Add a cross-encoder reranker</td></tr>
+        <tr><td>Answers cut off or missing context</td><td>Naive fixed-size chunking</td><td>Structure-aware chunks, parent-child retrieval</td></tr>
+        <tr><td>Confident but unsupported answers</td><td>No grounding check</td><td>Cite, verify and abstain when evidence is weak</td></tr>
+        <tr><td>Quality drops after a "small" change</td><td>No evaluation set</td><td>Golden dataset plus a regression check in CI</td></tr>
+        <tr><td>Stale or duplicated content</td><td>Non-idempotent ingestion</td><td>Content hashes and versioned re-indexing</td></tr>
+        <tr><td>Users see documents they should not</td><td>Permissions checked after retrieval</td><td>Apply access filters inside the search query</td></tr>
+        <tr><td>Document text steers the model</td><td>Prompt injection through retrieved content</td><td>Treat retrieved text as untrusted data, never as instructions</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="eval">
+  <h2><span class="n">6</span>How to evaluate it</h2>
+  <p>Measure <strong>retrieval</strong> and <strong>generation</strong> separately, so you know which one to fix.</p>
+  <div class="grid">
+    <div class="card">
+      <h3>Retrieval: did we find it?</h3>
+      <p><strong>Recall@k</strong>: is the right passage in the top k?<br><strong>MRR</strong> and <strong>nDCG</strong>: how high is it ranked?</p>
+    </div>
+    <div class="card">
+      <h3>Generation: did we use it well?</h3>
+      <p><strong>Faithfulness</strong>: is the answer supported by the passages?<br><strong>Answer relevancy</strong>: does it address the question?<br><strong>Context precision / recall</strong>: was the retrieved context useful and complete? (RAGAS covers these.)</p>
+    </div>
+  </div>
+  <p>Build a <strong>golden dataset</strong> of real questions with the expected source passages and reference answers, and include questions the corpus <em>cannot</em> answer to test abstention. Always debug retrieval first.</p>
+</section>
+
+<section id="checklist">
+  <h2><span class="n">7</span>Build checklist</h2>
+  <ol class="checklist">
+    <li><strong>Write the evaluation set first</strong><span>Collect realistic questions, expected sources and a few unanswerable ones.</span></li>
+    <li><strong>Get parsing right</strong><span>Headers, footers, tables and scanned pages quietly ruin chunks.</span></li>
+    <li><strong>Chunk with structure and metadata</strong><span>Keep section paths and page numbers for filters and citations.</span></li>
+    <li><strong>Baseline with hybrid retrieval</strong><span>Dense + BM25 + RRF, then measure against dense-only.</span></li>
+    <li><strong>Add reranking and measure the gain</strong><span>Keep it only if the metrics and latency justify it.</span></li>
+    <li><strong>Ground the prompt and allow abstention</strong><span>Numbered passages, "use only these", and a confidence threshold.</span></li>
+    <li><strong>Verify citations in code</strong><span>Check that every marker maps to a retrieved passage and supports the claim.</span></li>
+    <li><strong>Make ingestion idempotent</strong><span>Hash content, version documents, replace old chunks safely.</span></li>
+    <li><strong>Log every stage</strong><span>Candidates, scores, rerank order and verification, so wrong answers can be explained.</span></li>
+    <li><strong>Secure it</strong><span>Access filters at query time, untrusted-context handling, auth and rate limits.</span></li>
+  </ol>
+  <div class="callout warn"><strong>Rule of thumb:</strong> change one thing at a time and re-run the evaluation. Every chunk size, model or threshold is a hypothesis until a metric confirms it.</div>
+</section>
+
+<footer>
+  Part of <strong>Hybrid RAG Production Engine</strong>. See the project <a href="../README.md">README</a> for how each of these points is applied in the architecture.
+</footer>
+
+</div>
+</body>
+</html>
