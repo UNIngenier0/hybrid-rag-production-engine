@@ -22,16 +22,21 @@ COPY src ./src
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev --no-editable
 
-# --- Runtime stage: only the virtualenv, running as a non-root user ---
+# --- Runtime stage: only the virtualenv, running as a non-root user. The API and the bulk-ingestion
+# worker share this image; the worker only overrides the entrypoint in docker-compose.yml. ---
 FROM python:3.12.15-slim AS runtime
 
 RUN useradd --system --uid 10001 --no-create-home app
 
 COPY --from=builder /app/.venv /app/.venv
 
+# Model downloads (the BM25 term lists) are cached here; the worker mounts a volume on it.
+RUN mkdir -p /cache/huggingface && chown -R app /cache
+
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    HF_HOME=/cache/huggingface
 
 USER app
 EXPOSE 8000

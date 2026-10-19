@@ -1,0 +1,151 @@
+{
+  "config": {
+    "chunk_target_chars": 1000,
+    "chunk_max_chars": 1500,
+    "chunk_overlap_chars": 120,
+    "chunk_parent_chars": 3200
+  },
+  "total": {
+    "documents": 511962,
+    "megachars": 2448.8,
+    "chunks": 3064558,
+    "chunks_per_document": 5.99,
+    "single_chunk_documents_pct": 1.6,
+    "parents": 1099300,
+    "chunk_chars_p50": 850,
+    "chunk_chars_p90": 1000,
+    "chunk_chars_p99": 1275,
+    "indexed_megachars": 2595.5
+  },
+  "by_source": {
+    "confluence": {
+      "documents": 5189,
+      "megachars": 50.6,
+      "chunks": 65917,
+      "chunks_per_document": 12.7,
+      "single_chunk_documents_pct": 0.1,
+      "parents": 21150,
+      "chunk_chars_p50": 800,
+      "chunk_chars_p90": 975,
+      "chunk_chars_p99": 1200,
+      "indexed_megachars": 55.1
+    },
+    "fireflies": {
+      "documents": 10173,
+      "megachars": 116.8,
+      "chunks": 137364,
+      "chunks_per_document": 13.5,
+      "single_chunk_documents_pct": 0.1,
+      "parents": 46928,
+      "chunk_chars_p50": 900,
+      "chunk_chars_p90": 1000,
+      "chunk_chars_p99": 1075,
+      "indexed_megachars": 125.8
+    },
+    "github": {
+      "documents": 8052,
+      "megachars": 38.0,
+      "chunks": 49846,
+      "chunks_per_document": 6.19,
+      "single_chunk_documents_pct": 0.2,
+      "parents": 18283,
+      "chunk_chars_p50": 825,
+      "chunk_chars_p90": 1000,
+      "chunk_chars_p99": 1400,
+      "indexed_megachars": 42.3
+    },
+    "gmail": {
+      "documents": 121390,
+      "megachars": 847.3,
+      "chunks": 1079868,
+      "chunks_per_document": 8.9,
+      "single_chunk_documents_pct": 0.0,
+      "parents": 366514,
+      "chunk_chars_p50": 825,
+      "chunk_chars_p90": 1000,
+      "chunk_chars_p99": 1125,
+      "indexed_megachars": 916.8
+    },
+    "google_drive": {
+      "documents": 25108,
+      "megachars": 176.4,
+      "chunks": 232699,
+      "chunks_per_document": 9.27,
+      "single_chunk_documents_pct": 0.1,
+      "parents": 72937,
+      "chunk_chars_p50": 800,
+      "chunk_chars_p90": 975,
+      "chunk_chars_p99": 1225,
+      "indexed_megachars": 189.1
+    },
+    "hubspot": {
+      "documents": 15017,
+      "megachars": 47.2,
+      "chunks": 63329,
+      "chunks_per_document": 4.22,
+      "single_chunk_documents_pct": 0.2,
+      "parents": 25320,
+      "chunk_chars_p50": 775,
+      "chunk_chars_p90": 1000,
+      "chunk_chars_p99": 1425,
+      "indexed_megachars": 49.0
+    },
+    "jira": {
+      "documents": 6120,
+      "megachars": 33.9,
+      "chunks": 42577,
+      "chunks_per_document": 6.96,
+      "single_chunk_documents_pct": 0.5,
+      "parents": 16345,
+      "chunk_chars_p50": 825,
+      "chunk_chars_p90": 1125,
+      "chunk_chars_p99": 1475,
+      "indexed_megachars": 38.8
+    },
+    "linear": {
+      "documents": 35308,
+      "megachars": 182.9,
+      "chunks": 238013,
+      "chunks_per_document": 6.74,
+      "single_chunk_documents_pct": 0.0,
+      "parents": 87238,
+      "chunk_chars_p50": 775,
+      "chunk_chars_p90": 1050,
+      "chunk_chars_p99": 1450,
+      "indexed_megachars": 204.4
+    },
+    "slack": {
+      "documents": 285605,
+      "megachars": 955.7,
+      "chunks": 1154945,
+      "chunks_per_document": 4.04,
+      "single_chunk_documents_pct": 2.8,
+      "parents": 444585,
+      "chunk_chars_p50": 900,
+      "chunk_chars_p90": 1000,
+      "chunk_chars_p99": 1275,
+      "indexed_megachars": 974.1
+    }
+  },
+  "cleaning": {
+    "documents": 511962,
+    "decoded_lists": 115315,
+    "unescaped_newlines": 45722,
+    "control_chars": 181,
+    "titles_repaired": 1131
+  },
+  "cpu_seconds": 285.1,
+  "documents_per_second": 1795.9,
+  "megachars_per_second": 8.59,
+  "tokens": {
+    "tokenizer": "Snowflake/snowflake-arctic-embed-m-v1.5",
+    "sampled_chunks": 30645,
+    "tokens_per_char": 0.2638,
+    "chars_per_token": 3.79,
+    "mean_tokens_per_chunk": 223.1,
+    "max_tokens_per_chunk": 762,
+    "chunks_over_limit_pct": 0.003,
+    "estimated_total_tokens_millions": 684.7
+  },
+  "bm25_avg_len": 100.9
+}

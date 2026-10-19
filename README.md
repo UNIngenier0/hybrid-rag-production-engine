@@ -2,12 +2,12 @@
 
 > Production-grade Retrieval-Augmented Generation over internal documents: **hybrid search** (dense vectors + BM25), **cross-encoder reranking**, **verified citations**, and **quantitative evaluation**.
 
-![Status](https://img.shields.io/badge/status-phase%201%20implemented-blue)
+![Status](https://img.shields.io/badge/status-phase%202%20implemented-blue)
 ![Python](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white)
 ![Docker](https://img.shields.io/badge/deploy-Docker%20Compose-2496ED?logo=docker&logoColor=white)
 
-> **Project status: Phase 1 implemented.** This README is the architecture specification for the system. Today the repository contains the project skeleton: the API with health endpoints, the Docker Compose stack for Qdrant, PostgreSQL and Redis, and CI (see [Getting Started](#6-getting-started)). Everything else described here is design; the [Roadmap](#5-roadmap) tracks what gets built and in which order. Metrics in [Quality Targets](#4-quality-targets) are initial goals, not measured results.
+> **Project status: Phases 1 and 2 implemented.** This README is the architecture specification for the system. Today the repository contains the project skeleton (the API with health endpoints, the Docker Compose stack for Qdrant, PostgreSQL and Redis, and CI) and the ingestion pipeline for the benchmark corpus: download, cleaning, structure-aware chunking, BM25 and dense indexing, with the embeddings computed on a free Kaggle GPU and handed back as Parquet shards. The whole reference corpus is indexed (3,064,558 chunks; timings and findings in the [ingestion report](docs/ingestion-report.md)). See [Getting Started](#6-getting-started). Retrieval, evaluation and generation described here are still design; the [Roadmap](#5-roadmap) tracks what gets built and in which order. Metrics in [Quality Targets](#4-quality-targets) are initial goals, not measured results.
 
 ## Table of Contents
 
@@ -104,7 +104,7 @@ The failures below are the ones that appear after a RAG demo meets real document
 | Vector store | Qdrant | Stores dense and sparse (BM25) vectors in one collection, payload filtering, runs as a server |
 | Lexical retrieval | BM25 sparse vectors (stored in Qdrant) | Exact-term matching without maintaining a second search cluster |
 | Reranking | Cross-encoder model (for example a BGE reranker) | Much more accurate than similarity search on a short candidate list |
-| Embeddings | Configurable (local sentence-transformers model or hosted API) | Swappable without code changes |
+| Embeddings | `snowflake-arctic-embed-m-v1.5` (768 dimensions), behind an `Embedder` interface; the corpus vectors are computed offline on a free GPU | Best English retrieval quality that fits a free GPU budget (see [docs/kaggle-embedding.md](docs/kaggle-embedding.md)); swappable without code changes |
 | LLM | Claude Sonnet or GPT-4o, behind a provider interface | No vendor lock-in; the model can be compared in evaluation |
 | Metadata store | PostgreSQL | Document registry, ingestion jobs, query audit log, evaluation runs |
 | Queue and cache | Redis | Background job queue for ingestion and cache for embeddings and answers |
@@ -169,8 +169,9 @@ The "what it exercises" column is this project's reading of the category names a
 - **Usage.** MIT license. The dataset carries a canary GUID and asks that benchmark data stay out of training corpora, so this project uses it only as a retrieval corpus and evaluation set, never for fine-tuning.
 - **Synthetic data.** The documents are LLM-generated. Results describe behavior on this benchmark, not on a real company, and every public write-up should say so.
 - **Format.** Documents are text records (`doc_id`, `source_type`, `title`, `content`), not files. Ingestion therefore needs a Parquet dataset connector (see [2.1.4](#214-ingestion-runtime-flow)); the PDF, DOCX, HTML and Markdown parsers remain for user uploads.
-- **Scale is unmeasured.** Chunk count, token volume, ingestion time and storage are measured by profiling in Phase 2. Until then, sizing is an open question.
-- **Leaderboard.** Onyx publishes average correctness for several RAG systems. Scores depend on the generation model and the judge, so this project reports its own models alongside its results and treats comparisons as indicative. A leaderboard entry requires sending a reproduction guide to the maintainers.
+- **Scale, measured.** Profiling the full corpus ([report](docs/reports/corpus-profile.json)): 511,962 documents, 2,449 million characters (about 3.79 characters per token), which become about 3.1 million chunks and 685 million tokens to embed. Documents are long: a Slack record averages about 3.3k characters and a Confluence page about 9.8k.
+- **Data quirks, measured.** 115,315 records are serialized lists (the Gmail threads, as JSON or as a Python `repr`) and 45,722 had their line breaks flattened into the two characters `\n`; 181 contain control characters (37 contain NUL, which PostgreSQL rejects); 1,131 titles are a copy of the whole body; and 4 `doc_id` values are reused by different documents, so a document is identified by its `doc_id` plus a hash of its content. The cleaning step repairs all of these without losing text. The file is a single Parquet row group ordered by source type.
+- **Leaderboard.** Onyx ranks systems by an Overall Score: the mean over questions of correctness multiplied by completeness, judged by an LLM (GPT-5.4 on the public leaderboard). Document recall and the number of invalid extra documents are reported alongside, so returning many unrelated documents has a cost. Scores depend on the generation model and the judge, so this project reports its own models alongside its results and treats comparisons as indicative. A leaderboard entry requires sending a reproduction guide to the maintainers.
 
 ---
 
@@ -369,13 +370,13 @@ flowchart TD
 If any step fails, the job is retried with backoff and the document status becomes `FAILED` with the error recorded; a document is never left half-indexed because the new chunks replace the previous version only after the upsert succeeds.
 
 
-**Bulk ingestion of the reference corpus.** The EnterpriseRAG-Bench corpus (about 1.4 GB of Parquet) goes through the same pipeline, fed by a dataset connector instead of an upload:
+**Bulk ingestion of the reference corpus.** The EnterpriseRAG-Bench corpus (1.4 GB of Parquet, 2.4 GB of text) goes through the same pipeline, fed by a dataset connector instead of an upload, in three resumable passes:
 
-1. Stream the Parquet files in batches; the corpus is never loaded into memory at once.
-2. Chunk each document with a strategy chosen by source type. Short conversational documents (Slack, Gmail) are likely to be indexed as a single chunk, while long documents (Confluence, Google Drive, meeting transcripts) are split along their structure. The strategy is validated against the length profile measured in Phase 2.
-3. Embed and upsert in batches, using deterministic point IDs derived from `doc_id` and the chunk index, so a repeated batch overwrites instead of duplicating.
-4. Record a checkpoint (last completed batch per source file) in PostgreSQL, so an interrupted run resumes instead of restarting.
-5. Expose progress and throughput as metrics: documents per second, embedding queue depth and failed batches.
+1. **Stage.** Stream the Parquet file in batches (it is one row group of 2.5 GB, so it is read as a stream and never loaded whole), clean every record and store it in PostgreSQL. A restarted run continues after the highest row already stored.
+2. **BM25 pass.** Chunk each document along its structure (Markdown headings, `field:` sections, the messages of a thread, then paragraphs, lines and sentences only when a block is still too large) into child chunks of about 1,000 characters, and index each one with its BM25 sparse vector and a payload with the document, source, title, section and offsets of the chunk and of its larger parent passage. The corpus is keyword-searchable as soon as this pass ends. Point IDs derive from the document ID, a hash of its content and the chunk index, so a repeated batch overwrites instead of duplicating.
+3. **Dense pass.** Embed the same chunks and attach the vectors to their points. This is the expensive step: about 685 million tokens, which would take 80 to 125 hours or more on the CPU cores of a laptop (projected from measurements with models about a third of this size). It therefore runs offline on a free GPU and hands the vectors back as Parquet shards that `load-vectors` validates (same model, revision, chunking fingerprint and chunk counts) before attaching them. See [docs/kaggle-embedding.md](docs/kaggle-embedding.md).
+4. **Checkpoints.** Each document has a progress row in PostgreSQL (`sparse_at`, `dense_at`), written only after the index acknowledged the batch, so an interrupted run resumes instead of restarting. Passes can be sharded across processes.
+5. **Progress.** Throughput (documents per second) and an ETA are logged every 30 seconds as structured JSON.
 
 ### 2.2 Deployment Structure
 
@@ -430,7 +431,7 @@ The `api` container is attached to both networks: it is the only service reachab
 | `prometheus` (optional) | Official `prom/prometheus` image | `api` | HTTP `/-/healthy` | `prometheus_data` |
 | `grafana` (optional) | Official `grafana/grafana` image | `prometheus` | HTTP `/api/health` | `grafana_data` |
 
-Image tags are pinned to exact versions. The Phase 1 Compose file runs `api`, `qdrant`, `postgres` and `redis`; `worker` arrives in Phase 2 and the observability profile in Phase 6.
+Image tags are pinned to exact versions. The default stack runs `api`, `qdrant`, `postgres` and `redis`. `worker` is a batch job for bulk ingestion that runs only on demand (`docker compose run --rm worker <command>`) and shares the API image; the observability profile arrives in Phase 6. `docker-compose.host-ports.yml` is a development override that publishes Qdrant and PostgreSQL on the loopback interface.
 
 #### 2.2.2 Services Configuration
 
@@ -458,7 +459,7 @@ All configuration comes from environment variables; secrets are never baked into
 - **Network segmentation**: only `api` is reachable from outside; the data stores live on an `internal` network with no route to the internet.
 - **Scaling**: `api` is stateless and scales horizontally behind a load balancer; `worker` scales with queue depth; Qdrant starts as a single node, with sharding and replication available when the corpus requires it.
 - **Compute**: the reranker is CPU-bound by default and can use a GPU if latency requires it. If model weight becomes a problem, embedding and reranking can be extracted into their own inference service, because they already sit behind interfaces.
-- **Reference corpus sizing**: indexing 511,962 documents makes embedding the dominant ingestion cost and the vector index the dominant memory cost. Embedding throughput, Qdrant memory and disk, and total ingestion time are measured in Phase 2 and recorded in this section; until then they are unknown. Levers if needed: on-disk vectors, scalar quantization, HNSW tuning, a smaller embedding model, and a GPU or hosted embedding API for the bulk load. The dataset directory (`data/`) is a git-ignored volume and is never committed.
+- **Reference corpus sizing** (measured, details in the [ingestion report](docs/ingestion-report.md)): 511,962 documents became 3,064,558 chunks (about 6.0 per document) and about 685 million tokens. The index holds a 768-dimension half-precision dense vector (on disk, with an int8 copy in memory for the first-stage search), a BM25 sparse vector and a payload per chunk; the Qdrant volume is 15.7 GB, PostgreSQL 2.5 GB and the vector shards 4.2 GB. Cleaning and chunking the whole corpus takes about 5 minutes on one core, the BM25 pass about 42 minutes, and attaching the vectors about 2 hours, all with limited CPU. Embedding is the dominant cost and does not fit a laptop, so it ran on a free Kaggle GPU in 2.16 GPU-hours. Known limitation: on the 6 GB Docker VM of the development laptop a dense query takes 4 to 7 seconds, above the 1 second target; the levers (fewer and larger segments, 256-dimension Matryoshka vectors, more RAM) are listed in the report and belong to the retrieval and hardening phases. The dataset directory (`data/`) is a git-ignored volume and is never committed.
 - **Production path**: the same images run on Kubernetes or a managed container service; the file volume becomes object storage and PostgreSQL/Redis become managed services.
 - **Access control**: document-level access labels are stored in the chunk payload and applied as filters inside the vector query.
 
@@ -532,7 +533,7 @@ hybrid-rag-production-engine/
 │   ├── observability/           # Structured logging, tracing, Prometheus metrics
 │   └── core/                    # Settings, domain models, ports (interfaces), exceptions
 ├── data/                        # Downloaded benchmark corpus (git-ignored, never committed)
-├── scripts/                     # Dataset download and maintenance utilities
+├── scripts/kaggle/              # Offline GPU embedding job: kernel template and orchestrator
 ├── eval/
 │   ├── datasets/                # Golden questions and reference answers
 │   └── reports/                 # Ablation and regression reports
@@ -604,7 +605,7 @@ Initial goals, to be revised after the first measured baseline.
 | Answer grounding | RAGAS faithfulness | at least 0.90 |
 | Citation validity | Returned citations that resolve to a retrieved chunk | 100% (enforced by the verifier, not just measured) |
 | Honesty | Correct abstention on the 20 `info_not_found` questions | Tracked per category |
-| Benchmark standing | Average correctness across the 10 categories (500 questions) | First milestone: above the LangChain and LlamaIndex entries on the public leaderboard; stretch goal: above RAGFlow. Scores depend on the generation and judge models, so they are reported together |
+| Benchmark standing | Overall Score (mean of correctness x completeness) across the 10 categories (500 questions) | First milestone: above the LangChain and LlamaIndex entries on the public leaderboard; stretch goal: above RAGFlow. Scores depend on the generation and judge models, so they are reported together |
 | Retrieval latency | p95 of retrieve + fuse + rerank, excluding the LLM | under 1 second with the full corpus indexed |
 | Ingestion safety | Duplicate chunks after re-uploading an unchanged document | 0 |
 | Regression safety | CI fails when a tracked metric drops beyond tolerance | Enabled from Phase 4 |
@@ -615,9 +616,9 @@ Initial goals, to be revised after the first measured baseline.
 
 | Phase | Goal | Main deliverables | Status |
 |---|---|---|---|
-| 0 | Design and documentation | Architecture README, RAG primer, dataset selection, review of the benchmark's `methodology.md` | In progress |
+| 0 | Design and documentation | Architecture README, RAG primer, dataset selection, review of the benchmark's `methodology.md` | Done |
 | 1 | Project skeleton | FastAPI app, settings, Docker Compose with Qdrant, PostgreSQL and Redis, health endpoints, structured JSON logs with request IDs, lint, type-check and test CI | Done |
-| 2 | Ingestion at scale | Parquet dataset connector, dataset profiling (document lengths, chunk counts), source-aware chunking, embeddings, dense and BM25 indexing, idempotent bulk load of the full corpus with checkpoint and resume, sizing report | Planned |
+| 2 | Ingestion at scale | Parquet dataset connector, dataset profiling (document lengths, chunk counts), source-aware chunking, embeddings, dense and BM25 indexing, idempotent bulk load of the full corpus with checkpoint and resume, sizing report | Done: the full corpus is indexed (3,064,558 chunks with dense and BM25 vectors); see the [ingestion report](docs/ingestion-report.md) |
 | 3 | Hybrid retrieval | Dense and BM25 retrievers, RRF fusion, metadata filters, retrieval modes | Planned |
 | 4 | Evaluation harness and reranking | EnterpriseRAG-Bench runner with per-category results, retrieval metrics, cross-encoder reranker, first ablation report, CI regression gate | Planned |
 | 5 | Grounded generation | Prompting, LLM adapters, citation verification, abstention policy, conflict-aware answering, RAGAS metrics | Planned |
@@ -661,6 +662,20 @@ uv run mypy                       # strict type check
 uv run pytest                     # unit tests, no services needed
 uv run pytest -m integration      # against the running stack from the step above
 ```
+
+**Load the benchmark corpus** (Phase 2)
+
+```bash
+python -m rag_engine.ingestion.download                      # 1.4 GB, SHA-256 verified, into data/raw
+docker compose -f docker-compose.yml -f docker-compose.host-ports.yml up -d qdrant postgres
+python -m rag_engine.workers.bulk_ingest profile             # sizing report, no services needed
+python -m rag_engine.workers.bulk_ingest stage               # clean the corpus into PostgreSQL
+python -m rag_engine.workers.bulk_ingest index sparse        # chunk + BM25 into Qdrant
+python -m rag_engine.workers.bulk_ingest load-vectors        # attach the GPU-computed embeddings
+python -m rag_engine.workers.bulk_ingest status
+```
+
+Every command can be interrupted and run again. The embeddings come from the offline GPU job described in [docs/kaggle-embedding.md](docs/kaggle-embedding.md); the dense pass refuses to run for the whole corpus on a CPU or laptop GPU unless `--allow-slow-device` is given.
 
 **What exists today**
 
