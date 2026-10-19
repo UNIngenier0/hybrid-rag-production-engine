@@ -52,11 +52,17 @@ class Settings(BaseSettings):
     # HNSW search effort for dense queries. 64 instead of Qdrant's default 128 answered cold
     # queries several times faster for 0.3 points of recall (docs/ingestion-report.md).
     qdrant_hnsw_ef: int | None = Field(default=64, gt=0)
-    # Reciprocal Rank Fusion: score = weight / (rrf_k + rank). Equal weights unless evaluation
-    # shows one retriever should count for more.
+    # Reranking. The cross-encoder rescores the first `rerank_top_k` fused chunks. No model is
+    # loaded unless one is named: BAAI/bge-reranker-v2-m3 was the most accurate in the ablation but
+    # needs a GPU, BAAI/bge-reranker-base is the lighter choice (see docs/evaluation.md).
+    reranker_model: str | None = None
+    rerank_top_k: int = Field(default=30, gt=0)
+    # Reciprocal Rank Fusion: score = weight / (rrf_k + rank). BM25 is the stronger retriever on
+    # this corpus, and a weight of 1.5 gained recall on both halves of the evaluation questions
+    # (eval/reports/retrieval-ablation.md). The reranker study was run with equal weights.
     rrf_k: int = Field(default=60, gt=0)
     rrf_dense_weight: float = Field(default=1.0, gt=0)
-    rrf_sparse_weight: float = Field(default=1.0, gt=0)
+    rrf_sparse_weight: float = Field(default=1.5, gt=0)
 
     # Bulk ingestion.
     dataset_path: Path = Path("data/raw/documents/test.parquet")

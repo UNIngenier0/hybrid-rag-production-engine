@@ -11,9 +11,12 @@ query ──┬─ embed (arctic-embed-m-v1.5, query prefix) ─ dense search, t
         └─ BM25 encode ──────────────────── BM25 search, top 50 ──────────────┘
 ```
 
-- **Modes.** `dense`, `bm25` and `hybrid`. Every mode returns the same number of chunks, so modes
-  can be compared on equal terms. Scores are only comparable inside one result: cosine
-  similarity, BM25 score or fused RRF score.
+- **Modes.** `dense`, `bm25`, `hybrid` and `hybrid+rerank`. Every mode returns the same number of
+  chunks, so modes can be compared on equal terms. Scores are only comparable inside one result:
+  cosine similarity, BM25 score, fused RRF score or cross-encoder score. `hybrid+rerank` rescored
+  the first `RERANK_TOP_K` fused chunks with a cross-encoder and needs `RERANKER_MODEL` to be set;
+  without it the endpoint answers `503`. What each model gains and costs is in
+  [evaluation.md](evaluation.md#findings).
 - **Fusion.** Reciprocal Rank Fusion over chunks (`1 / (k + rank)` summed over the lists, `k = 60`),
   with an optional weight per retriever. Only ranks are used because the two score scales differ.
 - **Filters.** `source_types` and `doc_ids`, applied inside Qdrant to both searches.
@@ -42,7 +45,8 @@ query succeeds, `/v1/search` answers `503` if they cannot load.
 |---|---|---|
 | `DENSE_TOP_K`, `SPARSE_TOP_K` | 50, 50 | Chunks each retriever searches |
 | `FUSION_TOP_K` | 30 | Chunks a query returns when the caller does not say |
-| `RRF_K`, `RRF_DENSE_WEIGHT`, `RRF_SPARSE_WEIGHT` | 60, 1.0, 1.0 | Fusion constant and weights |
+| `RRF_K`, `RRF_DENSE_WEIGHT`, `RRF_SPARSE_WEIGHT` | 60, 1.0, 1.5 | Fusion constant and weights (BM25 counts more: [evaluation.md](evaluation.md#findings)) |
+| `RERANKER_MODEL`, `RERANK_TOP_K` | none, 30 | Cross-encoder for `hybrid+rerank`, and how many fused chunks it rescored |
 | `QDRANT_HNSW_EF` | 64 | HNSW search effort for dense queries (Qdrant's default is 128) |
 
 ## Quality, through the API
@@ -112,6 +116,6 @@ report) and takes a reload from the existing shards, about two hours of CPU, not
 
 ## Not in this phase
 
-Reranking and the evaluation harness (Phase 4), including the two grep baselines the project will be
-measured against; query rewriting and keyword extraction for the BM25 side; generation and citation
+The answer evaluation (Phase 4b) and the two grep baselines the project will be measured against;
+query rewriting and keyword extraction for the BM25 side; generation and citation
 verification (Phase 5).

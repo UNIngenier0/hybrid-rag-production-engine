@@ -69,3 +69,9 @@ def test_the_inputs_are_not_modified() -> None:
 
     assert dense[0].score == 0.9
     assert dense[0].dense_rank is None
+
+
+def test_fused_hits_record_their_position_after_fusion() -> None:
+    fused = reciprocal_rank_fusion([make_hit("a"), make_hit("b")], [make_hit("c"), make_hit("b")])
+
+    assert [(hit.point_id, hit.fusion_rank) for hit in fused] == [("b", 1), ("a", 2), ("c", 3)]

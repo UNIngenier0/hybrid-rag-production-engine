@@ -3,8 +3,9 @@
 from dataclasses import dataclass, field
 from typing import Literal
 
-# Which retriever answers a query. `hybrid` fuses the two others.
-RetrievalMode = Literal["dense", "bm25", "hybrid"]
+# Which retriever answers a query. `hybrid` fuses the first two; `hybrid+rerank` then reorders the
+# fused candidates with a cross-encoder.
+RetrievalMode = Literal["dense", "bm25", "hybrid", "hybrid+rerank"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,9 +101,10 @@ class ChunkHit:
     """A retrieved chunk.
 
     `score` is only comparable within one result: cosine similarity for dense search, the BM25
-    score for lexical search and the fused RRF score for hybrid search. The ranks (1 is best) say
-    where each retriever put the chunk, and are `None` when it did not return it. `context` is
-    the larger parent passage around the chunk, filled in only when it was asked for.
+    score for lexical search, the fused RRF score for hybrid search and the cross-encoder score
+    after reranking. The ranks (1 is best) say where each retriever put the chunk, and are `None`
+    when it did not return it; `fusion_rank` is the position after fusion, before any reranking.
+    `context` is the larger parent passage around the chunk, filled in only when it was asked for.
     """
 
     point_id: str
@@ -120,6 +122,7 @@ class ChunkHit:
     score: float
     dense_rank: int | None = None
     bm25_rank: int | None = None
+    fusion_rank: int | None = None
     context: str | None = None
 
     @property

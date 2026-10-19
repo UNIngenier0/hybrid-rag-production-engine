@@ -16,6 +16,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       QDRANT_PREFER_GRPC: "true"
       HF_TOKEN: ${HF_TOKEN:-}
+      # Names the cross-encoder that enables the `hybrid+rerank` mode; empty leaves it off.
+      RERANKER_MODEL: ${RERANKER_MODEL:-}
     volumes:
       - hf_cache:/cache/huggingface
     depends_on:
@@ -61,9 +63,9 @@ services:
         condition: service_healthy
     # `edge` gives it internet access to download models on first use.
     networks: [edge, backend]
-    # A batch job must not starve the machine it runs on.
-    cpus: 2
-    mem_limit: 3g
+    # A batch job must not starve the machine it runs on. A bigger machine can raise these in .env.
+    cpus: ${WORKER_CPUS:-2}
+    mem_limit: ${WORKER_MEMORY:-3g}
 
   qdrant:
     image: qdrant/qdrant:v1.19.2

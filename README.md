@@ -506,7 +506,7 @@ flowchart TD
 
 `observability` (logging, tracing, metrics) is a cross-cutting module used by every layer and is omitted from the diagram to keep it readable.
 
-**Repository layout** (the target; a directory appears when the roadmap phase that needs it lands, and today the code lives in `api`, `adapters`, `core` and `observability`)
+**Repository layout** (the target; a directory appears when the roadmap phase that needs it lands, and today the code lives in `api`, `adapters`, `core`, `evaluation`, `indexing`, `ingestion`, `observability`, `pipelines`, `retrieval` and `workers`)
 
 ```text
 hybrid-rag-production-engine/
@@ -620,7 +620,7 @@ Initial goals, to be revised after the first measured baseline.
 | 1 | Project skeleton | FastAPI app, settings, Docker Compose with Qdrant, PostgreSQL and Redis, health endpoints, structured JSON logs with request IDs, lint, type-check and test CI | Done |
 | 2 | Ingestion at scale | Parquet dataset connector, dataset profiling (document lengths, chunk counts), source-aware chunking, embeddings, dense and BM25 indexing, idempotent bulk load of the full corpus with checkpoint and resume, sizing report | Done: the full corpus is indexed (3,064,558 chunks with dense and BM25 vectors); see the [ingestion report](docs/ingestion-report.md) |
 | 3 | Hybrid retrieval | Dense and BM25 retrievers, RRF fusion, metadata filters, retrieval modes, parent-passage context, `POST /v1/search` | Done; see [docs/retrieval.md](docs/retrieval.md). Dense latency on the 6 GB development VM misses the 1 second target |
-| 4 | Evaluation harness and reranking | EnterpriseRAG-Bench runner with per-category results, retrieval metrics, cross-encoder reranker, first ablation report, CI regression gate, and two grep baselines to measure against (an LLM agent that searches with grep in a loop, and a single-attempt grep), run with the same LLM and judge | Planned |
+| 4 | Evaluation harness and reranking | EnterpriseRAG-Bench runner with per-category results, retrieval metrics, cross-encoder reranker, first ablation report, CI regression gate, and two grep baselines to measure against (an LLM agent that searches with grep in a loop, and a single-attempt grep), run with the same LLM and judge | In progress: retrieval harness, reranker and ablation done ([report](eval/reports/retrieval-ablation.md), [notes](docs/evaluation.md)); answer evaluation, grep baselines and the CI gate next |
 | 5 | Grounded generation | Prompting, LLM adapters, citation verification, abstention policy, conflict-aware answering, RAGAS metrics | Planned |
 | 6 | Production hardening | Auth, rate limiting, caching, tracing, Prometheus and Grafana, load test | Planned |
 | 7 | Results and write-up | Full benchmark results and ablation study, leaderboard submission with a reproduction guide, demo UI, lessons learned | Planned |
@@ -630,6 +630,8 @@ Initial goals, to be revised after the first measured baseline.
 ## 6. Getting Started
 
 **Prerequisites:** Docker with Compose. For development, [uv](https://docs.astral.sh/uv/), which also installs the pinned Python 3.12.
+
+Setting this up on a new machine (macOS, Windows with WSL 2, Linux), including how much memory to give Docker and how to move the finished index across, is covered step by step in [docs/setup.md](docs/setup.md).
 
 **Run the stack**
 
@@ -682,7 +684,7 @@ Every command can be interrupted and run again. The embeddings come from the off
 | Endpoint | Purpose | Success | Failure |
 |---|---|---|---|
 | `GET /health/live` | The process is up. Checks no dependency, so it never fails because of one | `200 {"status": "ok"}` | none |
-| `POST /v1/search` | Ranked chunks for a query: `mode` (`dense`, `bm25`, `hybrid`), `limit`, `filters` (`source_types`, `doc_ids`), optional parent-passage `include_context`; returns the hits with per-retriever ranks, the distinct `document_ids` and per-stage `timings_ms` ([details](docs/retrieval.md)) | `200` | `422` for an invalid request; `503` when the models or the data services cannot be reached |
+| `POST /v1/search` | Ranked chunks for a query: `mode` (`dense`, `bm25`, `hybrid`, `hybrid+rerank`), `limit`, `filters` (`source_types`, `doc_ids`), optional parent-passage `include_context`; returns the hits with per-retriever ranks, the distinct `document_ids` and per-stage `timings_ms` ([details](docs/retrieval.md)) | `200` | `422` for an invalid request; `503` when the models or the data services cannot be reached |
 | `GET /health/ready` | Qdrant, PostgreSQL and Redis all answer within `HEALTH_CHECK_TIMEOUT_SECONDS` (2 s by default); probed concurrently | `200`, status `ready` | `503`, status `not_ready`; the failing dependency is named with a short error label, and the details appear only in the server logs |
 
 Every response carries an `X-Request-ID` header: a well-formed client-supplied ID is echoed back and anything else is replaced with a generated one. Logs are JSON lines that include the request ID. The document, query and metrics endpoints described in [2.3.2](#232-functionalities-description) arrive with the roadmap phases that implement them.
@@ -692,5 +694,6 @@ Every response carries an `X-Request-ID` header: a well-formed client-supplied I
 ## 7. Further Reading
 
 - [`docs/rag-primer.html`](docs/rag-primer.html): a short, concise guide to what RAG is, how it works and what matters when building it. Download the repository or open the file locally in a browser to view it.
-- [`docs/ingestion-report.md`](docs/ingestion-report.md), [`docs/kaggle-embedding.md`](docs/kaggle-embedding.md) and [`docs/retrieval.md`](docs/retrieval.md): what was built for the full corpus, how the embeddings were computed on a free GPU, and how retrieval behaves, with the measurements.
+- [`docs/setup.md`](docs/setup.md): step-by-step setup on macOS, Windows (WSL 2) and Linux, how much memory to give Docker, and how to move the finished index to another machine.
+- [`docs/ingestion-report.md`](docs/ingestion-report.md), [`docs/kaggle-embedding.md`](docs/kaggle-embedding.md), [`docs/retrieval.md`](docs/retrieval.md) and [`docs/evaluation.md`](docs/evaluation.md): what was built for the full corpus, how the embeddings were computed on a free GPU, how retrieval behaves and how it was measured, with the results.
 - EnterpriseRAG-Bench: [repository](https://github.com/onyx-dot-app/EnterpriseRAG-Bench), [dataset](https://huggingface.co/datasets/onyx-dot-app/EnterpriseRAG-Bench), [leaderboard](https://huggingface.co/spaces/onyx-dot-app/EnterpriseRAG-Bench-Leaderboard) and [paper](https://arxiv.org/abs/2605.05253).

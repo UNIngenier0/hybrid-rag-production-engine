@@ -105,8 +105,18 @@ def wait(kernel: str, *, poll_seconds: int = 60, timeout_seconds: int = 13 * 360
     """Block until the kernel stops running. Returns the final status."""
     deadline = time.time() + timeout_seconds
     last = None
+    failures = 0
     while time.time() < deadline:
-        status = parse_status(kaggle("kernels", "status", kernel, capture=True)) or "UNKNOWN"
+        try:
+            status = parse_status(kaggle("kernels", "status", kernel, capture=True)) or "UNKNOWN"
+            failures = 0
+        except subprocess.CalledProcessError:
+            # The Kaggle API fails now and then for a moment; a long wait should survive that.
+            failures += 1
+            if failures >= 10:
+                raise
+            time.sleep(poll_seconds)
+            continue
         if status != last:
             print(f"[{time.strftime('%H:%M:%S')}] {kernel}: {status}", flush=True)
             last = status

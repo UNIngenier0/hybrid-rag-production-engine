@@ -32,4 +32,5 @@ def reciprocal_rank_fusion(
                 dense_rank=rank if is_dense else seen.dense_rank,
                 bm25_rank=seen.bm25_rank if is_dense else rank,
             )
-    return sorted(fused.values(), key=lambda hit: hit.score, reverse=True)
+    ranked = sorted(fused.values(), key=lambda hit: hit.score, reverse=True)
+    return [replace(hit, fusion_rank=rank) for rank, hit in enumerate(ranked, start=1)]

@@ -45,7 +45,9 @@ def test_timeout_must_be_positive() -> None:
 def test_retrieval_defaults_match_the_documented_design(settings: Settings) -> None:
     assert (settings.dense_top_k, settings.sparse_top_k, settings.fusion_top_k) == (50, 50, 30)
     assert settings.rrf_k == 60
-    assert settings.rrf_dense_weight == settings.rrf_sparse_weight == 1.0
+    assert (settings.rrf_dense_weight, settings.rrf_sparse_weight) == (1.0, 1.5)  # BM25 counts more
+    assert settings.reranker_model is None  # no model is loaded unless one is named
+    assert settings.rerank_top_k == 30
 
 
 @pytest.mark.parametrize("field", ["dense_top_k", "sparse_top_k", "fusion_top_k", "rrf_k"])

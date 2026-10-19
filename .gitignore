@@ -25,3 +25,6 @@ htmlcov/
 .idea/
 .vscode/
 .DS_Store
+
+# Evaluation caches (candidate lists, reranker scores) are large and reproducible.
+eval/cache/

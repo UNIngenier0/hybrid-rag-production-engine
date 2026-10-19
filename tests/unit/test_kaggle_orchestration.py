@@ -86,3 +86,74 @@ def test_a_single_shard_job_covers_just_that_shard() -> None:
     job = orchestrate.job_for("3", 5000, None)
 
     assert (job["first_shard"], job["last_shard"]) == (3, 3)
+
+
+RERANK = Path(__file__).parents[2] / "scripts" / "kaggle" / "rerank.py"
+
+
+def load_rerank():  # type: ignore[no-untyped-def]
+    sys.path.insert(0, str(RERANK.parent))  # rerank.py imports orchestrate from its own folder
+    try:
+        spec = importlib.util.spec_from_file_location("rerank_job", RERANK)
+        assert spec and spec.loader
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.path.remove(str(RERANK.parent))
+
+
+def test_the_rerank_kernel_attaches_the_candidates_dataset(tmp_path: Path) -> None:
+    rerank = load_rerank()
+    wheel = tmp_path / "rag_engine-0.1.0-py3-none-any.whl"
+    wheel.write_bytes(b"PK\x03\x04 pretend wheel \x00" * 30)
+    job = {"models": ["a/b", "c/d"], "pool": 50, "batch_size": 64}
+
+    folder = rerank.render(tmp_path / "kernel", "someone", wheel, job)
+
+    metadata = json.loads((folder / "kernel-metadata.json").read_text())
+    assert metadata["dataset_sources"] == ["someone/hybrid-rag-rerank-input"]
+    assert metadata["id"] == "someone/hybrid-rag-rerank"
+    assert metadata["enable_gpu"] == "true"
+    source = (folder / "rerank.py").read_text()
+    namespace: dict[str, object] = {"__name__": "kernel"}
+    exec(compile(source, "rerank.py", "exec"), namespace)
+    assert namespace["JOB"] == job
+    assert base64.b64decode(str(namespace["WHEEL_B64"])) == wheel.read_bytes()
+
+
+def test_the_dataset_holds_the_two_input_files_and_its_metadata(tmp_path: Path) -> None:
+    rerank = load_rerank()
+    candidates, questions = tmp_path / "c.gz", tmp_path / "q.parquet"
+    candidates.write_bytes(b"candidates")
+    questions.write_bytes(b"questions")
+
+    folder = rerank.prepare_dataset(tmp_path / "dataset", "someone", candidates, questions)
+
+    assert (folder / "candidates.dat").read_bytes() == b"candidates"  # not .gz: Kaggle unpacks it
+    assert (folder / "questions.parquet").read_bytes() == b"questions"
+    metadata = json.loads((folder / "dataset-metadata.json").read_text())
+    assert metadata["id"] == "someone/hybrid-rag-rerank-input"
+
+
+def test_waiting_survives_a_transient_status_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    import subprocess
+
+    replies = iter(
+        [
+            "fail",
+            'someone/kernel has status "KernelWorkerStatus.RUNNING"',
+            'someone/kernel has status "KernelWorkerStatus.COMPLETE"',
+        ]
+    )
+
+    def fake_kaggle(*arguments: str, capture: bool = False) -> str:
+        reply = next(replies)
+        if reply == "fail":
+            raise subprocess.CalledProcessError(1, ["kaggle", *arguments])
+        return reply
+
+    monkeypatch.setattr(orchestrate, "kaggle", fake_kaggle)
+    monkeypatch.setattr(orchestrate.time, "sleep", lambda seconds: None)
+
+    assert orchestrate.wait("someone/kernel", poll_seconds=0).endswith("COMPLETE")

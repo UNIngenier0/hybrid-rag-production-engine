@@ -10,8 +10,10 @@ from rag_engine.adapters.qdrant_index import QdrantChunkIndex
 from rag_engine.core.config import Settings
 from rag_engine.core.errors import RetrievalUnavailableError
 from rag_engine.core.models import RetrievalMode, RetrievalResult, SearchFilters
+from rag_engine.core.ports import Reranker
 from rag_engine.indexing.embedders import SentenceTransformerEmbedder
 from rag_engine.indexing.sparse import Bm25SparseEncoder
+from rag_engine.retrieval.cross_encoder import CrossEncoderReranker
 from rag_engine.retrieval.retriever import HybridRetriever, RetrievalConfig
 
 logger = logging.getLogger(__name__)
@@ -74,6 +76,11 @@ class LazyRetriever:
             ),
             asyncio.to_thread(Bm25SparseEncoder, avg_len=settings.bm25_avg_len),
         )
+        reranker: Reranker | None = None
+        if settings.reranker_model:
+            reranker = await asyncio.to_thread(
+                CrossEncoderReranker, settings.reranker_model, device=settings.embedding_device
+            )
         if embedder.dimension != settings.embedding_dimension:
             raise ValueError("the embedding model does not produce the indexed dimension")
         store = await PostgresDocumentStore.connect(settings.database_url.get_secret_value())
@@ -93,10 +100,12 @@ class LazyRetriever:
             embedder,
             sparse_encoder,
             passages=store,
+            reranker=reranker,
             config=RetrievalConfig(
                 dense_top_k=settings.dense_top_k,
                 sparse_top_k=settings.sparse_top_k,
                 default_limit=settings.fusion_top_k,
+                rerank_top_k=settings.rerank_top_k,
                 rrf_k=settings.rrf_k,
                 dense_weight=settings.rrf_dense_weight,
                 sparse_weight=settings.rrf_sparse_weight,

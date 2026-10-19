@@ -63,6 +63,7 @@ class SearchHit(BaseModel):
     score: float
     dense_rank: int | None
     bm25_rank: int | None
+    fusion_rank: int | None
 
 
 class SearchResponse(BaseModel):
@@ -91,6 +92,7 @@ class SearchResponse(BaseModel):
                     score=hit.score,
                     dense_rank=hit.dense_rank,
                     bm25_rank=hit.bm25_rank,
+                    fusion_rank=hit.fusion_rank,
                 )
                 for rank, hit in enumerate(result.hits, start=1)
             ],

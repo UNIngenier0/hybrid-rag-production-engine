@@ -49,6 +49,19 @@ class Embedder(Protocol):
         ...
 
 
+class Reranker(Protocol):
+    """Scores how well passages answer a query, more accurately than similarity search can.
+
+    Blocking: callers run it in a thread.
+    """
+
+    model_name: str
+
+    def score(self, query: str, passages: Sequence[str]) -> NDArray[np.float32]:
+        """One relevance score per passage; higher is more relevant."""
+        ...
+
+
 class SparseEncoder(Protocol):
     """Turns text into BM25 sparse vectors. Term weights only: IDF is applied by the index."""
 

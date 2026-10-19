@@ -256,3 +256,20 @@ class FakePassageStore:
             for span in spans
             if span.doc_id not in self.missing_docs
         }
+
+
+class FakeReranker:
+    """Scores a passage by the first key of `scores` it contains; unknown passages score 0."""
+
+    model_name = "fake-reranker"
+
+    def __init__(self, scores: Mapping[str, float]) -> None:
+        self.scores = scores
+        self.calls: list[tuple[str, list[str]]] = []
+
+    def score(self, query: str, passages: Sequence[str]) -> NDArray[np.float32]:
+        self.calls.append((query, list(passages)))
+        return np.array(
+            [next((v for k, v in self.scores.items() if k in p), 0.0) for p in passages],
+            dtype=np.float32,
+        )

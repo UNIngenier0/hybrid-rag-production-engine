@@ -1,11 +1,13 @@
-"""The query-side retriever: dense search, BM25 search, fusion and parent-passage context."""
+"""The query-side retriever: dense search, BM25 search, fusion, reranking and parent passages."""
 
 import asyncio
 import time
 from dataclasses import dataclass, replace
 
+from rag_engine.core.errors import RetrievalUnavailableError
 from rag_engine.core.models import ChunkHit, RetrievalMode, RetrievalResult, SearchFilters
-from rag_engine.core.ports import ChunkSearcher, Embedder, PassageStore, SparseEncoder
+from rag_engine.core.ports import ChunkSearcher, Embedder, PassageStore, Reranker, SparseEncoder
+from rag_engine.indexing.contextual import index_text
 from rag_engine.retrieval.fusion import reciprocal_rank_fusion
 
 
@@ -15,13 +17,15 @@ class RetrievalConfig:
     sparse_top_k: int = 50
     # How many chunks a query returns when the caller does not say.
     default_limit: int = 30
+    # Fused chunks the cross-encoder rescored in `hybrid+rerank` mode (at least the limit).
+    rerank_top_k: int = 30
     rrf_k: int = 60
     dense_weight: float = 1.0
     sparse_weight: float = 1.0
 
 
 class HybridRetriever:
-    """Runs the dense and the BM25 search side by side and fuses them with RRF.
+    """Runs the dense and the BM25 search side by side, fuses them with RRF and can rerank.
 
     Each branch embeds or encodes the query and searches as soon as its own vector is ready, so
     the slower model does not hold up the other search. Both searches use the same filters.
@@ -35,12 +39,14 @@ class HybridRetriever:
         sparse_encoder: SparseEncoder,
         *,
         passages: PassageStore | None = None,
+        reranker: Reranker | None = None,
         config: RetrievalConfig | None = None,
     ) -> None:
         self._searcher = searcher
         self._embedder = embedder
         self._sparse_encoder = sparse_encoder
         self._passages = passages
+        self._reranker = reranker
         self._config = config or RetrievalConfig()
 
     async def retrieve(
@@ -56,7 +62,9 @@ class HybridRetriever:
 
         Every mode returns the same number of chunks, so modes can be compared on equal terms. A
         retriever searches at least `limit` chunks deep, and its configured depth when that is
-        larger. With `include_context`, each hit also carries its parent passage.
+        larger. In `hybrid+rerank` mode the cross-encoder rescored the first `rerank_top_k` fused
+        chunks (or `limit`, if larger) and the best `limit` of them are returned. With
+        `include_context`, each hit also carries its parent passage.
         """
         if not query.strip():
             raise ValueError("query must not be empty")
@@ -65,16 +73,22 @@ class HybridRetriever:
             raise ValueError("limit must be at least 1")
         if include_context and self._passages is None:
             raise ValueError("this retriever was built without a passage store")
+        if mode == "hybrid+rerank" and self._reranker is None:
+            raise RetrievalUnavailableError("no reranker is configured")
+        fused_mode = mode in ("hybrid", "hybrid+rerank")
+        depth_floor = max(limit, self._config.rerank_top_k) if mode == "hybrid+rerank" else limit
 
         started = time.perf_counter()
         timings: dict[str, float] = {}
         dense: list[ChunkHit] = []
         sparse: list[ChunkHit] = []
         branches = []
-        if mode in ("dense", "hybrid"):
-            branches.append(self._dense(query, max(self._config.dense_top_k, limit), filters))
-        if mode in ("bm25", "hybrid"):
-            branches.append(self._sparse(query, max(self._config.sparse_top_k, limit), filters))
+        if mode == "dense" or fused_mode:
+            branches.append(self._dense(query, max(self._config.dense_top_k, depth_floor), filters))
+        if mode == "bm25" or fused_mode:
+            branches.append(
+                self._sparse(query, max(self._config.sparse_top_k, depth_floor), filters)
+            )
         for name, hits, stage_timings in await asyncio.gather(*branches):
             timings.update(stage_timings)
             if name == "dense":
@@ -82,7 +96,7 @@ class HybridRetriever:
             else:
                 sparse = hits
 
-        if mode == "hybrid":
+        if fused_mode:
             fuse_started = time.perf_counter()
             hits = reciprocal_rank_fusion(
                 dense,
@@ -92,6 +106,10 @@ class HybridRetriever:
                 sparse_weight=self._config.sparse_weight,
             )
             timings["fuse"] = _since(fuse_started)
+            if mode == "hybrid+rerank":
+                rerank_started = time.perf_counter()
+                hits = await self._rerank(query, hits, limit)
+                timings["rerank"] = _since(rerank_started)
         elif mode == "dense":
             hits = [replace(hit, dense_rank=rank) for rank, hit in enumerate(dense, start=1)]
         else:
@@ -124,6 +142,15 @@ class HybridRetriever:
         hits = await self._searcher.search_sparse(vector, limit=depth, filters=filters)
         timings = {"encode": _ms(searching - started), "bm25_search": _since(searching)}
         return "bm25", hits, timings
+
+    async def _rerank(self, query: str, hits: list[ChunkHit], limit: int) -> list[ChunkHit]:
+        assert self._reranker is not None
+        candidates = hits[: max(self._config.rerank_top_k, limit)]
+        passages = [index_text(hit.title, hit.section, hit.text) for hit in candidates]
+        scores = await asyncio.to_thread(self._reranker.score, query, passages)
+        # Stable sort: candidates the reranker scores equally keep their fused order.
+        order = sorted(range(len(candidates)), key=lambda i: float(scores[i]), reverse=True)
+        return [replace(candidates[i], score=float(scores[i])) for i in order]
 
     async def _with_context(self, hits: list[ChunkHit]) -> list[ChunkHit]:
         assert self._passages is not None

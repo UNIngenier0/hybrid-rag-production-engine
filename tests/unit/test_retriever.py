@@ -5,7 +5,15 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 
-from fakes import FakeEmbedder, FakePassageStore, FakeSearcher, FakeSparseEncoder, make_hit
+from fakes import (
+    FakeEmbedder,
+    FakePassageStore,
+    FakeReranker,
+    FakeSearcher,
+    FakeSparseEncoder,
+    make_hit,
+)
+from rag_engine.core.errors import RetrievalUnavailableError
 from rag_engine.core.models import SearchFilters, SparseVector
 from rag_engine.retrieval.retriever import HybridRetriever, RetrievalConfig
 
@@ -237,3 +245,92 @@ async def test_the_two_searches_run_at_the_same_time() -> None:
     await make_retriever(searcher).retrieve("query")
 
     assert searcher.max_in_flight == 2
+
+
+def rerank_retriever(
+    searcher: FakeSearcher, reranker: FakeReranker | None, **config: int
+) -> HybridRetriever:
+    return HybridRetriever(
+        searcher,
+        FakeEmbedder(),
+        FakeSparseEncoder(),
+        reranker=reranker,
+        config=RetrievalConfig(**config),
+    )
+
+
+async def test_rerank_reorders_the_fused_candidates_by_the_cross_encoder() -> None:
+    searcher = FakeSearcher(
+        dense=[make_hit("a"), make_hit("b"), make_hit("c")], sparse=[make_hit("a"), make_hit("b")]
+    )
+    reranker = FakeReranker({"text of c": 9.0, "text of b": 5.0, "text of a": 1.0})
+
+    result = await rerank_retriever(searcher, reranker).retrieve(
+        "query", mode="hybrid+rerank", limit=2
+    )
+
+    assert ids(result) == ["c", "b"]
+    assert [hit.score for hit in result.hits] == [9.0, 5.0]
+    assert "rerank" in result.timings_ms and "fuse" in result.timings_ms
+
+
+async def test_reranked_hits_keep_where_each_stage_ranked_them() -> None:
+    searcher = FakeSearcher(dense=[make_hit("a"), make_hit("b")], sparse=[make_hit("b")])
+    reranker = FakeReranker({"text of a": 2.0, "text of b": 1.0})
+
+    result = await rerank_retriever(searcher, reranker).retrieve("query", mode="hybrid+rerank")
+
+    by_id = {hit.point_id: hit for hit in result.hits}
+    assert (by_id["b"].dense_rank, by_id["b"].bm25_rank, by_id["b"].fusion_rank) == (2, 1, 1)
+    assert (by_id["a"].dense_rank, by_id["a"].bm25_rank, by_id["a"].fusion_rank) == (1, None, 2)
+
+
+async def test_only_the_first_rerank_top_k_fused_chunks_are_scored() -> None:
+    hits = [make_hit(str(i)) for i in range(10)]
+    reranker = FakeReranker({})
+
+    await rerank_retriever(FakeSearcher(dense=hits), reranker, rerank_top_k=4).retrieve(
+        "query", mode="hybrid+rerank", limit=2
+    )
+
+    assert len(reranker.calls[0][1]) == 4
+
+
+async def test_a_larger_limit_widens_the_reranked_candidates() -> None:
+    hits = [make_hit(str(i)) for i in range(10)]
+    reranker = FakeReranker({})
+
+    result = await rerank_retriever(FakeSearcher(dense=hits), reranker, rerank_top_k=4).retrieve(
+        "query", mode="hybrid+rerank", limit=7
+    )
+
+    assert len(reranker.calls[0][1]) == 7
+    assert len(result.hits) == 7
+
+
+async def test_the_reranker_reads_the_title_and_section_with_the_chunk() -> None:
+    hit = make_hit("a", title="Runbook", section="Rotation")
+    reranker = FakeReranker({})
+
+    await rerank_retriever(FakeSearcher(dense=[hit]), reranker).retrieve(
+        "how to rotate", mode="hybrid+rerank"
+    )
+
+    query, passages = reranker.calls[0]
+    assert query == "how to rotate"
+    assert passages == ["Runbook\nRotation\n\ntext of a"]
+
+
+async def test_equal_rerank_scores_keep_the_fused_order() -> None:
+    searcher = FakeSearcher(dense=[make_hit("a"), make_hit("b"), make_hit("c")])
+
+    result = await rerank_retriever(searcher, FakeReranker({})).retrieve(
+        "query", mode="hybrid+rerank"
+    )
+
+    assert ids(result) == ["a", "b", "c"]
+
+
+async def test_rerank_mode_needs_a_reranker() -> None:
+    with pytest.raises(RetrievalUnavailableError, match="reranker"):
+        await rerank_retriever(FakeSearcher(), None).retrieve("query", mode="hybrid+rerank")
