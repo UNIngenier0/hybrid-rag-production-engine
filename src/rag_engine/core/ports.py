@@ -6,7 +6,17 @@ from typing import Literal, Protocol
 import numpy as np
 from numpy.typing import NDArray
 
-from rag_engine.core.models import ChunkPoint, DocumentProgress, SequencedDocument, SparseVector
+from rag_engine.core.models import (
+    ChunkHit,
+    ChunkPoint,
+    DocumentProgress,
+    PassageSpan,
+    RetrievalMode,
+    RetrievalResult,
+    SearchFilters,
+    SequencedDocument,
+    SparseVector,
+)
 
 # The two passes that make a document searchable: BM25 first (fast, CPU), dense vectors second.
 IndexStage = Literal["sparse", "dense"]
@@ -108,3 +118,37 @@ class ChunkIndex(Protocol):
         is killed, so loaders pause here between large batches.
         """
         ...
+
+
+class ChunkSearcher(Protocol):
+    """Nearest-neighbour search over the indexed chunks. Hits come best first."""
+
+    async def search_dense(
+        self, vector: Sequence[float], *, limit: int, filters: SearchFilters | None = None
+    ) -> list[ChunkHit]: ...
+
+    async def search_sparse(
+        self, vector: SparseVector, *, limit: int, filters: SearchFilters | None = None
+    ) -> list[ChunkHit]: ...
+
+
+class PassageStore(Protocol):
+    """Reads back stretches of stored documents, used as context around a retrieved chunk."""
+
+    async def passages(self, spans: Sequence[PassageSpan]) -> dict[PassageSpan, str]:
+        """Text of each span. A span whose document is not stored is left out."""
+        ...
+
+
+class Retriever(Protocol):
+    """Finds the chunks that answer a query. The query pipeline depends only on this."""
+
+    async def retrieve(
+        self,
+        query: str,
+        *,
+        mode: RetrievalMode = "hybrid",
+        filters: SearchFilters | None = None,
+        limit: int | None = None,
+        include_context: bool = False,
+    ) -> RetrievalResult: ...

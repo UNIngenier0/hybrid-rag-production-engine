@@ -5,7 +5,12 @@ from typing import Self
 
 import asyncpg
 
-from rag_engine.core.models import DocumentProgress, SequencedDocument, SourceDocument
+from rag_engine.core.models import (
+    DocumentProgress,
+    PassageSpan,
+    SequencedDocument,
+    SourceDocument,
+)
 from rag_engine.core.ports import IndexStage, Shard
 
 _SCHEMA = (
@@ -68,6 +73,16 @@ _MARK_SPARSE = """
 _MARK_DENSE = """
     UPDATE index_progress p SET dense_at = now()
     FROM unnest($1::bigint[]) AS t(seq) WHERE p.seq = t.seq
+"""
+
+# The text of many spans in one round trip. `substr` counts characters, like the offsets the
+# chunker produced, and the (doc_id, content_sha256) key is unique, so each span matches one row.
+_PASSAGES = """
+    SELECT s.doc_id, s.content_sha256, s.span_start, s.span_end,
+           substr(d.content, s.span_start + 1, s.span_end - s.span_start) AS text
+    FROM unnest($1::text[], $2::text[], $3::int[], $4::int[])
+         AS s(doc_id, content_sha256, span_start, span_end)
+    JOIN documents d ON d.doc_id = s.doc_id AND d.content_sha256 = s.content_sha256
 """
 
 
@@ -161,3 +176,21 @@ class PostgresDocumentStore:
             dense_indexed=int(row["dense"]),
             chunks=int(row["chunks"]),
         )
+
+    async def passages(self, spans: Sequence[PassageSpan]) -> dict[PassageSpan, str]:
+        unique = list(dict.fromkeys(spans))
+        if not unique:
+            return {}
+        rows = await self._pool.fetch(
+            _PASSAGES,
+            [span.doc_id for span in unique],
+            [span.content_sha256 for span in unique],
+            [span.start for span in unique],
+            [span.end for span in unique],
+        )
+        return {
+            PassageSpan(row["doc_id"], row["content_sha256"], row["span_start"], row["span_end"]): (
+                row["text"]
+            )
+            for row in rows
+        }

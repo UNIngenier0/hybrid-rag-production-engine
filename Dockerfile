@@ -11,16 +11,17 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 WORKDIR /app
 
-# Dependencies first, so this layer is cached until the lockfile changes.
+# Dependencies first, so this layer is cached until the lockfile changes. The `embeddings` group
+# (torch, CPU build) is there because the API embeds each query with the same model as the index.
 COPY pyproject.toml uv.lock .python-version ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-dev --no-install-project
+    uv sync --locked --no-dev --group embeddings --no-install-project
 
 # Then the project itself.
 COPY README.md ./
 COPY src ./src
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-dev --no-editable
+    uv sync --locked --no-dev --group embeddings --no-editable
 
 # --- Runtime stage: only the virtualenv, running as a non-root user. The API and the bulk-ingestion
 # worker share this image; the worker only overrides the entrypoint in docker-compose.yml. ---
@@ -30,7 +31,8 @@ RUN useradd --system --uid 10001 --no-create-home app
 
 COPY --from=builder /app/.venv /app/.venv
 
-# Model downloads (the BM25 term lists) are cached here; the worker mounts a volume on it.
+# Model downloads (the embedding model, the BM25 term lists) are cached here; the API and the
+# worker mount a volume on it.
 RUN mkdir -p /cache/huggingface && chown -R app /cache
 
 ENV PATH="/app/.venv/bin:$PATH" \

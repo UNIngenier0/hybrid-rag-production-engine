@@ -40,3 +40,19 @@ def test_timeout_must_be_positive() -> None:
         Settings(
             _env_file=None, database_url="postgresql://u:p@h/d", health_check_timeout_seconds=0
         )
+
+
+def test_retrieval_defaults_match_the_documented_design(settings: Settings) -> None:
+    assert (settings.dense_top_k, settings.sparse_top_k, settings.fusion_top_k) == (50, 50, 30)
+    assert settings.rrf_k == 60
+    assert settings.rrf_dense_weight == settings.rrf_sparse_weight == 1.0
+
+
+@pytest.mark.parametrize("field", ["dense_top_k", "sparse_top_k", "fusion_top_k", "rrf_k"])
+def test_retrieval_depths_must_be_positive(field: str) -> None:
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, database_url="postgresql://u:p@h/d", **{field: 0})
+
+
+def test_dense_search_effort_defaults_to_the_measured_value(settings: Settings) -> None:
+    assert settings.qdrant_hnsw_ef == 64

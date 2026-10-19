@@ -42,6 +42,22 @@ class Settings(BaseSettings):
     chunk_overlap_chars: int = Field(default=120, ge=0)
     chunk_parent_chars: int = Field(default=3200, gt=0)
 
+    # Retrieval. Each retriever returns its `*_top_k` best chunks and the fused list keeps the
+    # first `fusion_top_k`. Candidate depth is measured in docs/ingestion-report.md: more candidates
+    # raise the recall a reranker can reach, at the price of reranking work.
+    dense_top_k: int = Field(default=50, gt=0)
+    sparse_top_k: int = Field(default=50, gt=0)
+    fusion_top_k: int = Field(default=30, gt=0)
+    qdrant_timeout_seconds: int = Field(default=30, gt=0)
+    # HNSW search effort for dense queries. 64 instead of Qdrant's default 128 answered cold
+    # queries several times faster for 0.3 points of recall (docs/ingestion-report.md).
+    qdrant_hnsw_ef: int | None = Field(default=64, gt=0)
+    # Reciprocal Rank Fusion: score = weight / (rrf_k + rank). Equal weights unless evaluation
+    # shows one retriever should count for more.
+    rrf_k: int = Field(default=60, gt=0)
+    rrf_dense_weight: float = Field(default=1.0, gt=0)
+    rrf_sparse_weight: float = Field(default=1.0, gt=0)
+
     # Bulk ingestion.
     dataset_path: Path = Path("data/raw/documents/test.parquet")
     vectors_dir: Path = Path("data/vectors")

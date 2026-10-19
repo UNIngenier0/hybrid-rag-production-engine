@@ -14,8 +14,11 @@ import pyarrow.parquet as pq
 from numpy.typing import NDArray
 
 from rag_engine.core.models import (
+    ChunkHit,
     ChunkPoint,
     DocumentProgress,
+    PassageSpan,
+    SearchFilters,
     SequencedDocument,
     SourceDocument,
     SparseVector,
@@ -187,3 +190,69 @@ def write_corpus(path: Path, rows: Sequence[tuple[str, str, str, str]]) -> Path:
     )
     pq.write_table(table, path)
     return path
+
+
+def make_hit(
+    point_id: str, *, doc_id: str | None = None, score: float = 1.0, **fields: object
+) -> ChunkHit:
+    """A retrieved chunk with plausible defaults; keyword arguments override any field."""
+    values: dict[str, object] = {
+        "point_id": point_id,
+        "doc_id": doc_id or f"doc-{point_id}",
+        "content_sha256": "sha",
+        "source_type": "confluence",
+        "title": "Title",
+        "section": None,
+        "chunk_index": 0,
+        "text": f"text of {point_id}",
+        "char_start": 0,
+        "char_end": 10,
+        "parent_start": 0,
+        "parent_end": 40,
+        "score": score,
+    }
+    values.update(fields)
+    return ChunkHit(**values)  # type: ignore[arg-type]
+
+
+class FakeSearcher:
+    """Returns the lists it was given and records how it was called."""
+
+    def __init__(
+        self, dense: list[ChunkHit] | None = None, sparse: list[ChunkHit] | None = None
+    ) -> None:
+        self.dense = dense or []
+        self.sparse = sparse or []
+        self.calls: list[tuple[str, int, SearchFilters | None]] = []
+        self.dense_vectors: list[list[float]] = []
+        self.sparse_vectors: list[SparseVector] = []
+
+    async def search_dense(
+        self, vector: Sequence[float], *, limit: int, filters: SearchFilters | None = None
+    ) -> list[ChunkHit]:
+        self.calls.append(("dense", limit, filters))
+        self.dense_vectors.append(list(vector))
+        return self.dense[:limit]
+
+    async def search_sparse(
+        self, vector: SparseVector, *, limit: int, filters: SearchFilters | None = None
+    ) -> list[ChunkHit]:
+        self.calls.append(("sparse", limit, filters))
+        self.sparse_vectors.append(vector)
+        return self.sparse[:limit]
+
+
+class FakePassageStore:
+    """Serves a span as a string that names it, unless the document is listed as missing."""
+
+    def __init__(self, missing_docs: frozenset[str] = frozenset()) -> None:
+        self.missing_docs = missing_docs
+        self.requests: list[list[PassageSpan]] = []
+
+    async def passages(self, spans: Sequence[PassageSpan]) -> dict[PassageSpan, str]:
+        self.requests.append(list(spans))
+        return {
+            span: f"{span.doc_id}[{span.start}:{span.end}]"
+            for span in spans
+            if span.doc_id not in self.missing_docs
+        }

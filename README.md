@@ -2,12 +2,12 @@
 
 > Production-grade Retrieval-Augmented Generation over internal documents: **hybrid search** (dense vectors + BM25), **cross-encoder reranking**, **verified citations**, and **quantitative evaluation**.
 
-![Status](https://img.shields.io/badge/status-phase%202%20implemented-blue)
+![Status](https://img.shields.io/badge/status-phase%203%20implemented-blue)
 ![Python](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white)
 ![Docker](https://img.shields.io/badge/deploy-Docker%20Compose-2496ED?logo=docker&logoColor=white)
 
-> **Project status: Phases 1 and 2 implemented.** This README is the architecture specification for the system. Today the repository contains the project skeleton (the API with health endpoints, the Docker Compose stack for Qdrant, PostgreSQL and Redis, and CI) and the ingestion pipeline for the benchmark corpus: download, cleaning, structure-aware chunking, BM25 and dense indexing, with the embeddings computed on a free Kaggle GPU and handed back as Parquet shards. The whole reference corpus is indexed (3,064,558 chunks; timings and findings in the [ingestion report](docs/ingestion-report.md)). See [Getting Started](#6-getting-started). Retrieval, evaluation and generation described here are still design; the [Roadmap](#5-roadmap) tracks what gets built and in which order. Metrics in [Quality Targets](#4-quality-targets) are initial goals, not measured results.
+> **Project status: Phases 1 to 3 implemented.** This README is the architecture specification for the system. Today the repository contains the project skeleton (the API with health endpoints, the Docker Compose stack for Qdrant, PostgreSQL and Redis, and CI) and the ingestion pipeline for the benchmark corpus: download, cleaning, structure-aware chunking, BM25 and dense indexing, with the embeddings computed on a free Kaggle GPU and handed back as Parquet shards. The whole reference corpus is indexed (3,064,558 chunks; timings and findings in the [ingestion report](docs/ingestion-report.md)), and `POST /v1/search` retrieves from it with dense, BM25 or fused search ([retrieval notes](docs/retrieval.md)). See [Getting Started](#6-getting-started). Reranking, evaluation and generation described here are still design; the [Roadmap](#5-roadmap) tracks what gets built and in which order. Metrics in [Quality Targets](#4-quality-targets) are initial goals, not measured results.
 
 ## Table of Contents
 
@@ -459,7 +459,7 @@ All configuration comes from environment variables; secrets are never baked into
 - **Network segmentation**: only `api` is reachable from outside; the data stores live on an `internal` network with no route to the internet.
 - **Scaling**: `api` is stateless and scales horizontally behind a load balancer; `worker` scales with queue depth; Qdrant starts as a single node, with sharding and replication available when the corpus requires it.
 - **Compute**: the reranker is CPU-bound by default and can use a GPU if latency requires it. If model weight becomes a problem, embedding and reranking can be extracted into their own inference service, because they already sit behind interfaces.
-- **Reference corpus sizing** (measured, details in the [ingestion report](docs/ingestion-report.md)): 511,962 documents became 3,064,558 chunks (about 6.0 per document) and about 685 million tokens. The index holds a 768-dimension half-precision dense vector (on disk, with an int8 copy in memory for the first-stage search), a BM25 sparse vector and a payload per chunk; the Qdrant volume is 15.7 GB, PostgreSQL 2.5 GB and the vector shards 4.2 GB. Cleaning and chunking the whole corpus takes about 5 minutes on one core, the BM25 pass about 42 minutes, and attaching the vectors about 2 hours, all with limited CPU. Embedding is the dominant cost and does not fit a laptop, so it ran on a free Kaggle GPU in 2.16 GPU-hours. Known limitation: on the 6 GB Docker VM of the development laptop a dense query takes 4 to 7 seconds, above the 1 second target; the levers (fewer and larger segments, 256-dimension Matryoshka vectors, more RAM) are listed in the report and belong to the retrieval and hardening phases. The dataset directory (`data/`) is a git-ignored volume and is never committed.
+- **Reference corpus sizing** (measured, details in the [ingestion report](docs/ingestion-report.md)): 511,962 documents became 3,064,558 chunks (about 6.0 per document) and about 685 million tokens. The index holds a 768-dimension half-precision dense vector (on disk, with an int8 copy in memory for the first-stage search), a BM25 sparse vector and a payload per chunk; the Qdrant volume is 15.7 GB, PostgreSQL 2.5 GB and the vector shards 4.2 GB. Cleaning and chunking the whole corpus takes about 5 minutes on one core, the BM25 pass about 42 minutes, and attaching the vectors about 2 hours, all with limited CPU. Embedding is the dominant cost and does not fit a laptop, so it ran on a free Kaggle GPU in 2.16 GPU-hours. Known limitation: dense search latency depends on how much of the index fits in memory. On the 6 GB Docker VM of the development laptop a dense query takes about 10 ms when its pages are cached and seconds when they are not, so the 1 second target is not met there and has to be verified on a machine with enough memory ([retrieval notes](docs/retrieval.md#latency-on-the-development-laptop)). The dataset directory (`data/`) is a git-ignored volume and is never committed.
 - **Production path**: the same images run on Kubernetes or a managed container service; the file volume becomes object storage and PostgreSQL/Redis become managed services.
 - **Access control**: document-level access labels are stored in the chunk payload and applied as filters inside the vector query.
 
@@ -525,7 +525,7 @@ hybrid-rag-production-engine/
 │   ├── pipelines/               # Query pipeline and ingestion pipeline orchestration
 │   ├── ingestion/               # Dataset connectors (Parquet), file parsers, cleaners, chunkers
 │   ├── indexing/                # Dense embedders, BM25 sparse encoder
-│   ├── retrieval/               # Dense and sparse retrievers, RRF fusion, reranker, filters
+│   ├── retrieval/               # Hybrid retriever (dense + BM25, modes), RRF fusion, reranker
 │   ├── generation/              # Prompt builder, answer parser
 │   ├── citations/               # Marker extraction, verification, abstention policy
 │   ├── adapters/                # Qdrant, PostgreSQL, Redis, Claude and OpenAI clients
@@ -550,7 +550,7 @@ hybrid-rag-production-engine/
 - **`pipelines`**: the two orchestrations: the **ingestion pipeline** (parse, chunk, encode, index) and the **query pipeline** (retrieve, fuse, rerank, abstain-or-generate, verify). Owns stage ordering, timing and trace collection.
 - **`ingestion`**: converts raw files and dataset records into clean, structured chunks. Dataset connectors (Parquet), parsers per file format, text cleaning, and the chunking strategies (recursive, structure-aware, parent-child, selected per source type).
 - **`indexing`**: produces the vectors: dense embedders behind an `Embedder` interface and the BM25 sparse encoder behind a `SparseEncoder` interface.
-- **`retrieval`**: finds and ranks candidates: dense retriever, BM25 retriever, Reciprocal Rank Fusion, metadata filter builder, and the cross-encoder reranker behind a `Reranker` interface.
+- **`retrieval`**: finds and ranks candidates: the hybrid retriever (dense and BM25 searches run side by side, with the metadata filters applied in Qdrant, in `dense`, `bm25` or `hybrid` mode), Reciprocal Rank Fusion, parent-passage context, and the cross-encoder reranker behind a `Reranker` interface (Phase 4).
 - **`generation`**: builds prompts from numbered context blocks and parses LLM output into an answer and a list of markers. Provider calls go through the `LLMClient` port.
 - **`citations`**: the grounding layer: extracts markers, resolves them to chunks, verifies claim support (entailment or LLM-as-judge, configurable), and applies the abstention policy.
 - **`adapters`**: the only modules that import infrastructure libraries. Implement the ports from `core` for Qdrant, PostgreSQL, Redis and the LLM providers. Replacing a vector store or LLM vendor means writing a new adapter.
@@ -619,8 +619,8 @@ Initial goals, to be revised after the first measured baseline.
 | 0 | Design and documentation | Architecture README, RAG primer, dataset selection, review of the benchmark's `methodology.md` | Done |
 | 1 | Project skeleton | FastAPI app, settings, Docker Compose with Qdrant, PostgreSQL and Redis, health endpoints, structured JSON logs with request IDs, lint, type-check and test CI | Done |
 | 2 | Ingestion at scale | Parquet dataset connector, dataset profiling (document lengths, chunk counts), source-aware chunking, embeddings, dense and BM25 indexing, idempotent bulk load of the full corpus with checkpoint and resume, sizing report | Done: the full corpus is indexed (3,064,558 chunks with dense and BM25 vectors); see the [ingestion report](docs/ingestion-report.md) |
-| 3 | Hybrid retrieval | Dense and BM25 retrievers, RRF fusion, metadata filters, retrieval modes | Planned |
-| 4 | Evaluation harness and reranking | EnterpriseRAG-Bench runner with per-category results, retrieval metrics, cross-encoder reranker, first ablation report, CI regression gate | Planned |
+| 3 | Hybrid retrieval | Dense and BM25 retrievers, RRF fusion, metadata filters, retrieval modes, parent-passage context, `POST /v1/search` | Done; see [docs/retrieval.md](docs/retrieval.md). Dense latency on the 6 GB development VM misses the 1 second target |
+| 4 | Evaluation harness and reranking | EnterpriseRAG-Bench runner with per-category results, retrieval metrics, cross-encoder reranker, first ablation report, CI regression gate, and two grep baselines to measure against (an LLM agent that searches with grep in a loop, and a single-attempt grep), run with the same LLM and judge | Planned |
 | 5 | Grounded generation | Prompting, LLM adapters, citation verification, abstention policy, conflict-aware answering, RAGAS metrics | Planned |
 | 6 | Production hardening | Auth, rate limiting, caching, tracing, Prometheus and Grafana, load test | Planned |
 | 7 | Results and write-up | Full benchmark results and ablation study, leaderboard submission with a reproduction guide, demo UI, lessons learned | Planned |
@@ -682,6 +682,7 @@ Every command can be interrupted and run again. The embeddings come from the off
 | Endpoint | Purpose | Success | Failure |
 |---|---|---|---|
 | `GET /health/live` | The process is up. Checks no dependency, so it never fails because of one | `200 {"status": "ok"}` | none |
+| `POST /v1/search` | Ranked chunks for a query: `mode` (`dense`, `bm25`, `hybrid`), `limit`, `filters` (`source_types`, `doc_ids`), optional parent-passage `include_context`; returns the hits with per-retriever ranks, the distinct `document_ids` and per-stage `timings_ms` ([details](docs/retrieval.md)) | `200` | `422` for an invalid request; `503` when the models or the data services cannot be reached |
 | `GET /health/ready` | Qdrant, PostgreSQL and Redis all answer within `HEALTH_CHECK_TIMEOUT_SECONDS` (2 s by default); probed concurrently | `200`, status `ready` | `503`, status `not_ready`; the failing dependency is named with a short error label, and the details appear only in the server logs |
 
 Every response carries an `X-Request-ID` header: a well-formed client-supplied ID is echoed back and anything else is replaced with a generated one. Logs are JSON lines that include the request ID. The document, query and metrics endpoints described in [2.3.2](#232-functionalities-description) arrive with the roadmap phases that implement them.
@@ -691,4 +692,5 @@ Every response carries an `X-Request-ID` header: a well-formed client-supplied I
 ## 7. Further Reading
 
 - [`docs/rag-primer.html`](docs/rag-primer.html): a short, concise guide to what RAG is, how it works and what matters when building it. Download the repository or open the file locally in a browser to view it.
+- [`docs/ingestion-report.md`](docs/ingestion-report.md), [`docs/kaggle-embedding.md`](docs/kaggle-embedding.md) and [`docs/retrieval.md`](docs/retrieval.md): what was built for the full corpus, how the embeddings were computed on a free GPU, and how retrieval behaves, with the measurements.
 - EnterpriseRAG-Bench: [repository](https://github.com/onyx-dot-app/EnterpriseRAG-Bench), [dataset](https://huggingface.co/datasets/onyx-dot-app/EnterpriseRAG-Bench), [leaderboard](https://huggingface.co/spaces/onyx-dot-app/EnterpriseRAG-Bench-Leaderboard) and [paper](https://arxiv.org/abs/2605.05253).

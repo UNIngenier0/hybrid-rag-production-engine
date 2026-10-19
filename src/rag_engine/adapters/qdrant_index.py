@@ -7,7 +7,7 @@ from collections.abc import Mapping, Sequence
 
 from qdrant_client import AsyncQdrantClient, models
 
-from rag_engine.core.models import ChunkPoint
+from rag_engine.core.models import ChunkHit, ChunkPoint, SearchFilters, SparseVector
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +31,16 @@ class QdrantChunkIndex:
         *,
         upload_batch_size: int = 500,
         indexing_threads: int = 2,
+        search_ef: int | None = None,
     ) -> None:
         self._client = client
         self._collection = collection
         self._upload_batch_size = upload_batch_size
         # Index building is CPU-heavy; a small cap keeps a laptop usable while it runs.
         self._indexing_threads = indexing_threads
+        # Candidates the dense graph search keeps while it walks; Qdrant's default is the build-time
+        # value (128). Lower is faster, mostly when the graph is not in memory, and costs recall.
+        self._search_ef = search_ef
 
     async def close(self) -> None:
         await self._client.close()
@@ -121,6 +125,37 @@ class QdrantChunkIndex:
                 wait=True,
             )
 
+    async def search_dense(
+        self, vector: Sequence[float], *, limit: int, filters: SearchFilters | None = None
+    ) -> list[ChunkHit]:
+        params = models.SearchParams(hnsw_ef=self._search_ef) if self._search_ef else None
+        return await self._search(list(vector), DENSE_VECTOR, limit, filters, params)
+
+    async def search_sparse(
+        self, vector: SparseVector, *, limit: int, filters: SearchFilters | None = None
+    ) -> list[ChunkHit]:
+        query = models.SparseVector(indices=vector.indices, values=vector.values)
+        return await self._search(query, SPARSE_VECTOR, limit, filters, None)
+
+    async def _search(
+        self,
+        query: list[float] | models.SparseVector,
+        using: str,
+        limit: int,
+        filters: SearchFilters | None,
+        params: models.SearchParams | None,
+    ) -> list[ChunkHit]:
+        response = await self._client.query_points(
+            collection_name=self._collection,
+            query=query,
+            using=using,
+            query_filter=_filter(filters),
+            search_params=params,
+            limit=limit,
+            with_payload=True,
+        )
+        return [_hit(point) for point in response.points]
+
     async def count(self) -> int:
         if not await self._client.collection_exists(self._collection):
             return 0
@@ -165,3 +200,34 @@ class QdrantChunkIndex:
                 )
             },
         )
+
+
+def _filter(filters: SearchFilters | None) -> models.Filter | None:
+    if filters is None:
+        return None
+    conditions: list[models.Condition] = []
+    for field, values in (("source_type", filters.source_types), ("doc_id", filters.doc_ids)):
+        if values:
+            conditions.append(
+                models.FieldCondition(key=field, match=models.MatchAny(any=list(values)))
+            )
+    return models.Filter(must=conditions) if conditions else None
+
+
+def _hit(point: models.ScoredPoint) -> ChunkHit:
+    payload = point.payload or {}
+    return ChunkHit(
+        point_id=str(point.id),
+        doc_id=payload["doc_id"],
+        content_sha256=payload["content_sha256"],
+        source_type=payload["source_type"],
+        title=payload["title"],
+        section=payload.get("section"),
+        chunk_index=payload["chunk_index"],
+        text=payload["text"],
+        char_start=payload["char_start"],
+        char_end=payload["char_end"],
+        parent_start=payload["parent_start"],
+        parent_end=payload["parent_end"],
+        score=point.score,
+    )

@@ -1,6 +1,10 @@
 """Domain models shared by ingestion, indexing and retrieval. Plain data, no infrastructure."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Literal
+
+# Which retriever answers a query. `hybrid` fuses the two others.
+RetrievalMode = Literal["dense", "bm25", "hybrid"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,3 +75,68 @@ class DocumentProgress:
     sparse_indexed: int
     dense_indexed: int
     chunks: int
+
+
+@dataclass(frozen=True, slots=True)
+class SearchFilters:
+    """Restrict a search to some sources or documents. An empty field does not restrict."""
+
+    source_types: tuple[str, ...] = ()
+    doc_ids: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class PassageSpan:
+    """A stretch of one stored document, in characters of its cleaned content."""
+
+    doc_id: str
+    content_sha256: str
+    start: int
+    end: int
+
+
+@dataclass(frozen=True, slots=True)
+class ChunkHit:
+    """A retrieved chunk.
+
+    `score` is only comparable within one result: cosine similarity for dense search, the BM25
+    score for lexical search and the fused RRF score for hybrid search. The ranks (1 is best) say
+    where each retriever put the chunk, and are `None` when it did not return it. `context` is
+    the larger parent passage around the chunk, filled in only when it was asked for.
+    """
+
+    point_id: str
+    doc_id: str
+    content_sha256: str
+    source_type: str
+    title: str
+    section: str | None
+    chunk_index: int
+    text: str
+    char_start: int
+    char_end: int
+    parent_start: int
+    parent_end: int
+    score: float
+    dense_rank: int | None = None
+    bm25_rank: int | None = None
+    context: str | None = None
+
+    @property
+    def parent_span(self) -> PassageSpan:
+        return PassageSpan(self.doc_id, self.content_sha256, self.parent_start, self.parent_end)
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalResult:
+    """Ranked chunks for one query, with how long each stage took."""
+
+    query: str
+    mode: RetrievalMode
+    hits: list[ChunkHit]
+    timings_ms: dict[str, float] = field(default_factory=dict)
+
+    @property
+    def document_ids(self) -> list[str]:
+        """Distinct documents in the order their best chunk appears."""
+        return list(dict.fromkeys(hit.doc_id for hit in self.hits))
