@@ -179,6 +179,9 @@ class GrepRetriever:
         self._window = window
         self._searcher = searcher
         self.plans: dict[str, SearchPlan | None] = {}
+        # What each search did, by question: the pattern, how many files matched and whether the
+        # search was abandoned. That tells a pattern with no match from one that never finished.
+        self.searches: dict[str, dict[str, Any]] = {}
 
     async def retrieve(
         self,
@@ -195,12 +198,20 @@ class GrepRetriever:
             plan = None  # the model gave no usable pattern: the single try is spent
         self.plans[query] = plan
         if plan is None:
+            self.searches[query] = {"pattern": None, "files_found": 0, "timed_out": False}
             return RetrievalResult(query=query, mode=mode, hits=[])
+        timed_out = False
         try:
             found = await asyncio.to_thread(self._searcher, plan, self._corpus)
         except subprocess.TimeoutExpired:
             # A pattern that matches half the corpus never finishes: the single try found nothing.
-            found = []
+            found, timed_out = [], True
+        self.searches[query] = {
+            "pattern": plan.pattern,
+            "sources": list(plan.sources),
+            "files_found": len(found),
+            "timed_out": timed_out,
+        }
         hits = [
             await asyncio.to_thread(self._hit, match, plan)
             for match in found[: min(self._files, limit or self._files)]

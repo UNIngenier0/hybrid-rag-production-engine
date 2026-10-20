@@ -46,6 +46,7 @@ def test_retrieval_defaults_match_the_documented_design(settings: Settings) -> N
     assert (settings.dense_top_k, settings.sparse_top_k, settings.fusion_top_k) == (50, 50, 30)
     assert settings.rrf_k == 60
     assert (settings.rrf_dense_weight, settings.rrf_sparse_weight) == (1.0, 1.5)  # BM25 counts more
+    assert settings.rerank_sparse_weight == 1.0  # the weight the reranker study measured
     assert settings.reranker_model is None  # no model is loaded unless one is named
     assert settings.rerank_top_k == 30
 

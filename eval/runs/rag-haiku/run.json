@@ -1,0 +1,14 @@
+{
+  "system": "rag",
+  "model": "claude-haiku-5-5",
+  "mode": "hybrid+rerank",
+  "passages": 5,
+  "documents": "cited",
+  "retrieval": "stored candidates; equal-weight fusion; BAAI/bge-reranker-v2-m3 scores, pool 30",
+  "selection": {
+    "per_type": 12,
+    "seed": 0,
+    "limit": null
+  },
+  "note": "Written after the run, from the command that produced it; later runs record this themselves."
+}

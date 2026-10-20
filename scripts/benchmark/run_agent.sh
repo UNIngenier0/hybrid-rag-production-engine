@@ -34,6 +34,21 @@ with open(out, "w") as handle:
 print(f"{len(wanted)} questions for the agent")
 PY
 
+# How the answers are produced is recorded next to them, so a comparison can check it.
+python3 - "$ROOT/$run/run.json" "$model" "$budget" "$parallelism" <<'PY'
+import json, sys
+path, model, budget, parallelism = sys.argv[1:5]
+manifest = {
+    "system": "grep-agent",
+    "model": model,
+    "passages": None,
+    "documents": "reported by the agent",
+    "parallelism": int(parallelism),
+    "budget_usd": float(budget),
+}
+open(path, "w").write(json.dumps(manifest, indent=2) + "\n")
+PY
+
 meter_start "$budget"
 trap 'docker rm -f rag-agent > /dev/null 2>&1 || true; meter_stop "$ROOT/$run/cost-agent.json" || true' EXIT
 

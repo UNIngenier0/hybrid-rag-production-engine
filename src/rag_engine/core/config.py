@@ -59,10 +59,14 @@ class Settings(BaseSettings):
     rerank_top_k: int = Field(default=30, gt=0)
     # Reciprocal Rank Fusion: score = weight / (rrf_k + rank). BM25 is the stronger retriever on
     # this corpus, and a weight of 1.5 gained recall on both halves of the evaluation questions
-    # (eval/reports/retrieval-ablation.md). The reranker study was run with equal weights.
+    # (eval/reports/retrieval-ablation.md).
     rrf_k: int = Field(default=60, gt=0)
     rrf_dense_weight: float = Field(default=1.0, gt=0)
     rrf_sparse_weight: float = Field(default=1.5, gt=0)
+    # The BM25 weight when the fused list feeds the reranker. The reranker study and the answer
+    # evaluation were run with equal weights, and a heavier BM25 showed no gain once the
+    # cross-encoder reorders the pool, so the pipeline that ships is the one that was measured.
+    rerank_sparse_weight: float = Field(default=1.0, gt=0)
 
     # Answer generation. The key is a secret and stays in the git-ignored .env. Haiku is the default
     # because it is cheap and good enough to compare retrieval; a stronger model is a setting away.

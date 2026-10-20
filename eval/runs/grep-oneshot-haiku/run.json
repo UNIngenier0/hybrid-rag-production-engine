@@ -1,0 +1,9 @@
+{
+  "system": "grep-oneshot",
+  "model": "claude-haiku-5-5",
+  "passages": 5,
+  "documents": "cited",
+  "window_chars": 3200,
+  "search_timeout_seconds": 300,
+  "note": "Written after the run, from the command that produced it; later runs record this themselves. The first 28 questions ran under a 900 s search limit (none reached it); the other 68 under the 300 s limit recorded here."
+}

@@ -1,7 +1,8 @@
 # Retrieval: how it works and what was measured
 
 Phase 3 turns the index into a search service. A query is embedded and BM25-encoded, the two
-searches run side by side, and their rankings are merged. Reranking arrives in Phase 4.
+searches run side by side, and their rankings are merged; in `hybrid+rerank` mode a cross-encoder
+then reorders the best candidates (Phase 4).
 
 ## How a query runs
 
@@ -16,7 +17,9 @@ query ──┬─ embed (arctic-embed-m-v1.5, query prefix) ─ dense search, t
   cosine similarity, BM25 score, fused RRF score or cross-encoder score. `hybrid+rerank` rescored
   the first `RERANK_TOP_K` fused chunks with a cross-encoder and needs `RERANKER_MODEL` to be set;
   without it the endpoint answers `503`. What each model gains and costs is in
-  [evaluation.md](evaluation.md#findings).
+  [evaluation.md](evaluation.md#findings). The pool that feeds the reranker is fused with equal
+  weights (`RERANK_SPARSE_WEIGHT`), because that is the pool every reranking measurement used; the
+  heavier BM25 weight applies to plain `hybrid`.
 - **Fusion.** Reciprocal Rank Fusion over chunks (`1 / (k + rank)` summed over the lists, `k = 60`),
   with an optional weight per retriever. Only ranks are used because the two score scales differ.
 - **Filters.** `source_types` and `doc_ids`, applied inside Qdrant to both searches.
@@ -46,6 +49,7 @@ query succeeds, `/v1/search` answers `503` if they cannot load.
 | `DENSE_TOP_K`, `SPARSE_TOP_K` | 50, 50 | Chunks each retriever searches |
 | `FUSION_TOP_K` | 30 | Chunks a query returns when the caller does not say |
 | `RRF_K`, `RRF_DENSE_WEIGHT`, `RRF_SPARSE_WEIGHT` | 60, 1.0, 1.5 | Fusion constant and weights (BM25 counts more: [evaluation.md](evaluation.md#findings)) |
+| `RERANK_SPARSE_WEIGHT` | 1.0 | BM25 weight when the fused list feeds the reranker (the weight the reranker study measured) |
 | `RERANKER_MODEL`, `RERANK_TOP_K` | none, 30 | Cross-encoder for `hybrid+rerank`, and how many fused chunks it rescored |
 | `QDRANT_HNSW_EF` | 64 | HNSW search effort for dense queries (Qdrant's default is 128) |
 
@@ -114,8 +118,28 @@ The untested remedies, in order of cost: a machine with enough memory to keep th
 shrink the working set to a third at a cost of about 2.7 points of recall (see the ingestion
 report) and takes a reload from the existing shards, about two hours of CPU, not a new GPU run.
 
+## Checked against the running service
+
+The evaluation numbers come from stored candidates replayed through the same fusion and reranking
+code as the service. To check that the running service returns what the replay predicts, 32
+questions (every 15th with gold documents) were sent to `POST /v1/search` in each mode, against the
+full index, with the service's default settings, and the top 10 chunks were compared with the
+replay's:
+
+| Mode | Identical top 10 | Top-5 overlap |
+|---|---|---|
+| Dense | 32 of 32 | 1.000 |
+| BM25 | 31 of 32 | 1.000 |
+| Hybrid | 32 of 32 | 1.000 |
+| Hybrid + rerank (MiniLM-L6 on the CPU, replayed with the GPU's scores) | 29 of 32 | 0.988 |
+
+Every difference was looked at. The three reranked ones swap two neighbours whose scores differ by
+less than 0.002: the GPU's half-precision scores tie exactly (5.140625 twice) and the replay keeps
+the fused order, while the CPU's full-precision scores separate them. The BM25 one is two chunks with
+exactly the same score (29.111042) at rank 10, which Qdrant orders differently when asked for 10
+results than for 100. The check is repeatable with `scripts/e2e.sh`.
+
 ## Not in this phase
 
-The answer evaluation (Phase 4b) and the two grep baselines the project will be measured against;
-query rewriting and keyword extraction for the BM25 side; generation and citation
-verification (Phase 5).
+Query rewriting and keyword extraction for the BM25 side; generation and citation verification
+(Phase 5).

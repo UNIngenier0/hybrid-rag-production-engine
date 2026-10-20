@@ -2,12 +2,12 @@
 
 > Production-grade Retrieval-Augmented Generation over internal documents: **hybrid search** (dense vectors + BM25), **cross-encoder reranking**, **verified citations**, and **quantitative evaluation**.
 
-![Status](https://img.shields.io/badge/status-phase%203%20implemented-blue)
+![Status](https://img.shields.io/badge/status-phase%204%20implemented-blue)
 ![Python](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white)
 ![Docker](https://img.shields.io/badge/deploy-Docker%20Compose-2496ED?logo=docker&logoColor=white)
 
-> **Project status: Phases 1 to 3 implemented.** This README is the architecture specification for the system. Today the repository contains the project skeleton (the API with health endpoints, the Docker Compose stack for Qdrant, PostgreSQL and Redis, and CI) and the ingestion pipeline for the benchmark corpus: download, cleaning, structure-aware chunking, BM25 and dense indexing, with the embeddings computed on a free Kaggle GPU and handed back as Parquet shards. The whole reference corpus is indexed (3,064,558 chunks; timings and findings in the [ingestion report](docs/ingestion-report.md)), and `POST /v1/search` retrieves from it with dense, BM25 or fused search ([retrieval notes](docs/retrieval.md)). See [Getting Started](#6-getting-started). Reranking, evaluation and generation described here are still design; the [Roadmap](#5-roadmap) tracks what gets built and in which order. Metrics in [Quality Targets](#4-quality-targets) are initial goals, not measured results.
+> **Project status: Phases 1 to 4 implemented.** This README is the architecture specification for the system. Today the repository contains the project skeleton (the API with health endpoints, the Docker Compose stack for Qdrant, PostgreSQL and Redis, and CI) and the ingestion pipeline for the benchmark corpus: download, cleaning, structure-aware chunking, BM25 and dense indexing, with the embeddings computed on a free Kaggle GPU and handed back as Parquet shards. The whole reference corpus is indexed (3,064,558 chunks; timings and findings in the [ingestion report](docs/ingestion-report.md)), and `POST /v1/search` retrieves from it with dense, BM25 or fused search ([retrieval notes](docs/retrieval.md)). See [Getting Started](#6-getting-started). A cross-encoder reranker, a benchmark evaluation harness with a CI regression gate, and two grep baselines to measure against are in place ([evaluation notes](docs/evaluation.md)). Answer generation with verified citations, abstention and the hardening described here are still design; the [Roadmap](#5-roadmap) tracks what gets built and in which order. Metrics in [Quality Targets](#4-quality-targets) are initial goals, except where a measured result is quoted.
 
 ## Table of Contents
 
@@ -608,9 +608,9 @@ Initial goals, to be revised after the first measured baseline.
 | Benchmark standing | Overall Score (mean of correctness x completeness) across the 10 categories (500 questions) | First milestone: above the LangChain and LlamaIndex entries on the public leaderboard; stretch goal: above RAGFlow. Scores depend on the generation and judge models, so they are reported together |
 | Retrieval latency | p95 of retrieve + fuse + rerank, excluding the LLM | under 1 second with the full corpus indexed |
 | Ingestion safety | Duplicate chunks after re-uploading an unchanged document | 0 |
-| Regression safety | CI fails when a tracked metric drops beyond tolerance | Enabled from Phase 4 |
+| Regression safety | CI fails when a tracked metric drops beyond tolerance | Enabled for retrieval (Phase 4); answer-side checks follow with Phase 5 |
 
-**First measured results** (96 EnterpriseRAG-Bench questions, 12 of each of eight types, Claude Haiku 5.5 for every system and as the judge, so not comparable with the public leaderboard): hybrid retrieval with reranking scores 50.6 on the benchmark's combined correctness-and-completeness measure, the benchmark's own iterative grep agent 40.0 and a single-attempt grep 4.8. The reranked pipeline is ahead of the agent by 10.7 points (95% interval 0.7 to 20.6) at a twenty-fifth of the cost per question, and the agent wins on the questions that need many documents put together. Details and limits are in [docs/evaluation.md](docs/evaluation.md#answer-evaluation).
+**First measured results** (EnterpriseRAG-Bench, Claude Haiku 5.5 for every system and as the judge, so not comparable with the public leaderboard). On 96 questions (12 of each of eight types) hybrid retrieval with reranking scores 50.6 on the benchmark's combined correctness-and-completeness measure, the benchmark's own iterative grep agent 40.0 and a single-attempt grep 4.8. Against the single grep attempt the difference is large and robust. Against the iterating agent the reranked pipeline is ahead by 6 to 11 points across two runs at a twenty-fifth of the cost per question, but the 96 questions cannot separate that from no difference, and the agent is better on the questions that need many documents put together. On all 470 questions with gold documents the same pipeline scores 48.9. Every comparison is checked by code for equal questions, model, judge and evidence budget, and the audit of how far to trust it is in [docs/evaluation.md](docs/evaluation.md#fairness-audit).
 
 ---
 
@@ -622,7 +622,7 @@ Initial goals, to be revised after the first measured baseline.
 | 1 | Project skeleton | FastAPI app, settings, Docker Compose with Qdrant, PostgreSQL and Redis, health endpoints, structured JSON logs with request IDs, lint, type-check and test CI | Done |
 | 2 | Ingestion at scale | Parquet dataset connector, dataset profiling (document lengths, chunk counts), source-aware chunking, embeddings, dense and BM25 indexing, idempotent bulk load of the full corpus with checkpoint and resume, sizing report | Done: the full corpus is indexed (3,064,558 chunks with dense and BM25 vectors); see the [ingestion report](docs/ingestion-report.md) |
 | 3 | Hybrid retrieval | Dense and BM25 retrievers, RRF fusion, metadata filters, retrieval modes, parent-passage context, `POST /v1/search` | Done; see [docs/retrieval.md](docs/retrieval.md). Dense latency on the 6 GB development VM misses the 1 second target |
-| 4 | Evaluation harness and reranking | EnterpriseRAG-Bench runner with per-category results, retrieval metrics, cross-encoder reranker, first ablation report, CI regression gate, and two grep baselines to measure against (an LLM agent that searches with grep in a loop, and a single-attempt grep), run with the same LLM and judge | In progress: retrieval harness, reranker and ablation done ([report](eval/reports/retrieval-ablation.md)); answer evaluation against the iterative and single-attempt grep baselines done on 96 questions ([comparison](eval/reports/answer-comparison.md), [notes](docs/evaluation.md#answer-evaluation)); CI regression gate next |
+| 4 | Evaluation harness and reranking | EnterpriseRAG-Bench runner with per-category results, retrieval metrics, cross-encoder reranker, first ablation report, CI regression gate, and two grep baselines to measure against (an LLM agent that searches with grep in a loop, and a single-attempt grep), run with the same LLM and judge | Done: retrieval harness, reranker and ablation ([report](eval/reports/retrieval-ablation.md)); answer evaluation against both grep baselines with automated fairness checks ([comparison](eval/reports/answer-comparison.md), [notes and audit](docs/evaluation.md#answer-evaluation)); CI regression gate ([how it works](docs/evaluation.md#regression-gate)); end-to-end check (`scripts/e2e.sh`) |
 | 5 | Grounded generation | Prompting, LLM adapters, citation verification, abstention policy, conflict-aware answering, RAGAS metrics | Planned |
 | 6 | Production hardening | Auth, rate limiting, caching, tracing, Prometheus and Grafana, load test | Planned |
 | 7 | Results and write-up | Full benchmark results and ablation study, leaderboard submission with a reproduction guide, demo UI, lessons learned | Planned |
@@ -665,6 +665,8 @@ uv run ruff format --check .      # formatting
 uv run mypy                       # strict type check
 uv run pytest                     # unit tests, no services needed
 uv run pytest -m integration      # against the running stack from the step above
+uv run python -m rag_engine.evaluation.cli gate   # the retrieval regression gate CI runs
+scripts/e2e.sh                    # everything above plus real search and answers, end to end
 ```
 
 **Load the benchmark corpus** (Phase 2)

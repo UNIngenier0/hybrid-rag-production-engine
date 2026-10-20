@@ -198,15 +198,31 @@ The first query takes about 25 seconds, because the API downloads and loads the 
 (the Compose volume `hf_cache` keeps it for next time). After that, the first minutes are the
 slowest, while the page cache fills.
 
-## 7. Run the tests (optional)
+## 7. Check that everything works
+
+```bash
+scripts/e2e.sh              # about 4 minutes on the development Mac
+scripts/e2e.sh --rivals     # also the two grep baselines and the comparison (about 10 minutes there)
+```
+
+The script runs, in order: lint, types and the unit tests; the retrieval regression gate; the
+Compose stack; the search API against the loaded index in every mode; and, when there is a model
+key and the stored candidates (see [evaluation.md](evaluation.md)), the answers of our RAG for
+three questions scored by the benchmark's own evaluator. With `--rivals` it adds the
+single-attempt grep and the iterative agent on the same questions, and writes their comparison
+with the fairness checks. A step the machine cannot run (no index loaded, no key, no benchmark
+checkout) is skipped with the reason; only a step that runs and fails makes the script fail. The
+model calls it makes are capped and cost about 10 cents in total.
+
+Without the script, the pieces are:
 
 ```bash
 uv sync
-uv run pytest                  # unit tests; no services needed
+uv run pytest                                   # unit tests; no services needed
 uv run ruff check . && uv run mypy
+uv run python -m rag_engine.evaluation.cli gate # the regression gate CI runs
+uv run pytest -m integration                    # needs the Compose stack running
 ```
-
-The `integration` tests expect the Compose stack to be running (`uv run pytest -m integration`).
 
 ## Troubleshooting
 

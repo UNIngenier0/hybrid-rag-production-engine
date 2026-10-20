@@ -1,9 +1,11 @@
 """What a run folder holds, read back."""
 
 import json
+from collections.abc import Sequence
 from pathlib import Path
 
 from rag_engine.core.models import LLMUsage
+from rag_engine.evaluation.compare import Arm, load_outcomes
 from rag_engine.generation.cost import cost_usd
 
 
@@ -26,3 +28,11 @@ def answering_cost(run_dir: Path) -> float | None:
         if "input_tokens" in row:
             total += cost_usd(row["model"], LLMUsage(row["input_tokens"], row["output_tokens"]))
     return total
+
+
+def load_arms(specs: Sequence[tuple[str, Path]], judge: str) -> list[Arm]:
+    """The systems of a comparison with their scored answers and what the answers cost."""
+    return [
+        Arm(name, load_outcomes(folder / f"results-{judge}.json"), answering_cost(folder))
+        for name, folder in specs
+    ]

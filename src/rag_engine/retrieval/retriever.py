@@ -22,6 +22,8 @@ class RetrievalConfig:
     rrf_k: int = 60
     dense_weight: float = 1.0
     sparse_weight: float = 1.0
+    # BM25 weight when the fused list feeds the reranker (see Settings.rerank_sparse_weight).
+    rerank_sparse_weight: float = 1.0
 
 
 class HybridRetriever:
@@ -103,7 +105,11 @@ class HybridRetriever:
                 sparse,
                 k=self._config.rrf_k,
                 dense_weight=self._config.dense_weight,
-                sparse_weight=self._config.sparse_weight,
+                sparse_weight=(
+                    self._config.rerank_sparse_weight
+                    if mode == "hybrid+rerank"
+                    else self._config.sparse_weight
+                ),
             )
             timings["fuse"] = _since(fuse_started)
             if mode == "hybrid+rerank":

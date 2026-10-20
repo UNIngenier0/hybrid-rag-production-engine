@@ -27,5 +27,59 @@
       "combined_vs_baseline": -0.458346875,
       "cost_usd": 0.091145
     }
+  },
+  "audit": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "same questions",
+        "passed": true,
+        "detail": "96 questions"
+      },
+      {
+        "name": "every question answered",
+        "passed": true,
+        "detail": "all answered"
+      },
+      {
+        "name": "every answer scored",
+        "passed": true,
+        "detail": "all scored"
+      },
+      {
+        "name": "same gold answers for everyone",
+        "passed": true,
+        "detail": "judged against the original gold set (no correction)"
+      },
+      {
+        "name": "same judge",
+        "passed": true,
+        "detail": "claude-haiku-5-5 for every system (claude-haiku-5-5)"
+      },
+      {
+        "name": "same answering model",
+        "passed": true,
+        "detail": "claude-haiku-5-5 for every system"
+      },
+      {
+        "name": "same evidence budget for single-pass systems",
+        "passed": true,
+        "detail": "5 passages or files per question for Hybrid + rerank (ours), Single-attempt grep"
+      },
+      {
+        "name": "same document-reporting rule",
+        "passed": true,
+        "detail": "documents reported = cited for Hybrid + rerank (ours), Single-attempt grep"
+      },
+      {
+        "name": "cost measured for every system",
+        "passed": true,
+        "detail": "every system has a usage report or token counts"
+      }
+    ],
+    "notes": [
+      "Iterative grep agent decides for itself how much to read and search (cost and time are reported next to its score).",
+      "Iterative grep agent: answers end with a source list, so the evaluator removes citations before judging, as the benchmark does by default."
+    ]
   }
 }

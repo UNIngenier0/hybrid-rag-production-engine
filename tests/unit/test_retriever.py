@@ -331,3 +331,18 @@ async def test_equal_rerank_scores_keep_the_fused_order() -> None:
 async def test_rerank_mode_needs_a_reranker() -> None:
     with pytest.raises(RetrievalUnavailableError, match="reranker"):
         await rerank_retriever(FakeSearcher(), None).retrieve("query", mode="hybrid+rerank")
+
+
+async def test_the_reranker_is_fed_a_pool_fused_with_its_own_bm25_weight() -> None:
+    dense, sparse = [make_hit("a"), make_hit("b")], [make_hit("c"), make_hit("d")]
+    weights = {"sparse_weight": 5.0, "rerank_sparse_weight": 1.0}
+
+    hybrid = await make_retriever(FakeSearcher(dense=dense, sparse=sparse), **weights).retrieve(
+        "query"
+    )
+    pool = await rerank_retriever(
+        FakeSearcher(dense=dense, sparse=sparse), FakeReranker({}), **weights
+    ).retrieve("query", mode="hybrid+rerank")
+
+    assert ids(hybrid) == ["c", "d", "a", "b"]  # BM25 counts five times as much
+    assert ids(pool) == ["a", "c", "b", "d"]  # equal weights, and the reranker ties keep that order

@@ -6,6 +6,8 @@ export-pool  keep just the fused pool of each question, to score on another mach
 answer    generate the answers of a run from the stored candidates (needs PostgreSQL and a key)
 grep-answer  the single-attempt grep baseline: one pattern, one search, the same answer step
 compare   compare systems on the answers they gave, from the evaluator's results files
+gate      replay the retrieval fixture and check the committed answer comparison (CI)
+build-gate-fixture  write the fixture the gate replays, from the stored candidates
 report    compare retrievers, fusion settings and rerankers offline and write the ablation
 """
 
@@ -14,7 +16,7 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from rag_engine.evaluation.candidates import collect_candidates, load_candidates
 from rag_engine.evaluation.questions import (
@@ -38,6 +40,8 @@ if TYPE_CHECKING:
 
 DEFAULT_QUESTIONS = Path("data/raw/questions/test.parquet")
 DEFAULT_CANDIDATES = Path("eval/cache/candidates.jsonl.gz")
+DEFAULT_GATE_FIXTURE = Path("eval/baselines/gate-fixture.jsonl.gz")
+DEFAULT_GATE_BASELINE = Path("eval/baselines/retrieval.json")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -118,12 +122,36 @@ def _parser() -> argparse.ArgumentParser:
     )
     comparison.add_argument("--judge", default="claude-haiku-5-5", help="whose results to read")
     comparison.add_argument(
+        "--allow-differences",
+        action="store_true",
+        help="write the report even if the fairness checks fail (they stay in the report)",
+    )
+    comparison.add_argument(
         "--out-md", type=Path, default=Path("eval/reports/answer-comparison.md")
     )
     comparison.add_argument(
         "--out-json", type=Path, default=Path("eval/reports/answer-comparison.json")
     )
     comparison.set_defaults(handler=_compare)
+
+    fixture = commands.add_parser(
+        "build-gate-fixture", help="write the fixture the regression gate replays"
+    )
+    fixture.add_argument("--questions", type=Path, default=DEFAULT_QUESTIONS)
+    fixture.add_argument("--candidates", type=Path, default=DEFAULT_CANDIDATES)
+    fixture.add_argument("--rerank", metavar="SCORES_FILE", type=Path, required=True)
+    fixture.add_argument("--out", type=Path, default=DEFAULT_GATE_FIXTURE)
+    fixture.set_defaults(handler=_build_gate_fixture)
+
+    gate = commands.add_parser("gate", help="fail when retrieval or the published numbers regress")
+    gate.add_argument("--fixture", type=Path, default=DEFAULT_GATE_FIXTURE)
+    gate.add_argument("--baseline", type=Path, default=DEFAULT_GATE_BASELINE)
+    gate.add_argument(
+        "--update-baseline",
+        action="store_true",
+        help="write the current numbers as the new baseline (after reviewing them)",
+    )
+    gate.set_defaults(handler=_gate)
 
     report = commands.add_parser("report", help="write the retrieval ablation")
     report.add_argument("--questions", type=Path, default=DEFAULT_QUESTIONS)
@@ -218,6 +246,7 @@ async def _answer_async(args: argparse.Namespace, settings: "Settings") -> None:
     from rag_engine.adapters.anthropic_llm import AnthropicClient
     from rag_engine.adapters.postgres_documents import PostgresDocumentStore
     from rag_engine.evaluation.answering import answer_questions
+    from rag_engine.evaluation.audit import write_manifest
     from rag_engine.evaluation.stored import StoredRetriever
     from rag_engine.generation.answer import AnswerGenerator
     from rag_engine.generation.cost import CostMeter, MeteredLLM
@@ -228,6 +257,18 @@ async def _answer_async(args: argparse.Namespace, settings: "Settings") -> None:
     selection = stratified_subset(with_gold_documents(everything), args.per_type, seed=args.seed)
     selection = selection[: args.limit] if args.limit else selection
     run_dir = _write_selection(args.runs_dir / args.run, selection)
+    model = args.model or settings.llm_model
+    write_manifest(
+        run_dir,
+        {
+            "system": "rag",
+            "model": model,
+            "mode": args.mode,
+            "passages": args.chunks,
+            "documents": args.documents,
+            "selection": {"per_type": args.per_type, "seed": args.seed, "limit": args.limit},
+        },
+    )
     scores = load_scores(args.rerank) if args.rerank else None
     store = await PostgresDocumentStore.connect(settings.database_url.get_secret_value())
     meter = CostMeter(args.budget_usd)
@@ -268,7 +309,8 @@ def _grep_answer(args: argparse.Namespace) -> None:
 async def _grep_answer_async(args: argparse.Namespace, settings: "Settings") -> None:
     from rag_engine.adapters.anthropic_llm import AnthropicClient
     from rag_engine.evaluation.answering import answer_questions
-    from rag_engine.evaluation.grep_baseline import GrepRetriever
+    from rag_engine.evaluation.audit import write_manifest
+    from rag_engine.evaluation.grep_baseline import SEARCH_TIMEOUT_SECONDS, GrepRetriever
     from rag_engine.generation.answer import AnswerGenerator
     from rag_engine.generation.cost import CostMeter, MeteredLLM
 
@@ -278,6 +320,17 @@ async def _grep_answer_async(args: argparse.Namespace, settings: "Settings") -> 
     by_id = {question.question_id: question for question in load_questions(args.questions)}
     selection = [by_id[question_id] for question_id in wanted]
     run_dir = _write_selection(args.runs_dir / args.run, selection)
+    write_manifest(
+        run_dir,
+        {
+            "system": "grep-oneshot",
+            "model": args.model or settings.llm_model,
+            "passages": args.files,
+            "documents": "cited",
+            "window_chars": 3200,
+            "search_timeout_seconds": SEARCH_TIMEOUT_SECONDS,
+        },
+    )
     meter = CostMeter(args.budget_usd)
     client = AnthropicClient(
         settings.anthropic_api_key.get_secret_value(),
@@ -300,34 +353,89 @@ async def _grep_answer_async(args: argparse.Namespace, settings: "Settings") -> 
         )
     finally:
         await client.aclose()
-    plans = {question_id: plan for question_id, plan in retriever.plans.items() if plan}
+    by_text = {question.question: question.question_id for question in selection}
+    _append_searches(run_dir / "searches.jsonl", retriever.searches, by_text)
+    unusable = sum(1 for plan in retriever.plans.values() if plan is None)
+    timed_out = sum(1 for search in retriever.searches.values() if search["timed_out"])
     print(
         f"\n{summary}\nspent ${meter.spent_usd:.4f} on {meter.calls} calls; "
-        f"{len(retriever.plans) - len(plans)} questions got no usable pattern; "
+        f"{unusable} questions got no usable pattern, {timed_out} searches were abandoned; "
         f"run folder: {run_dir}"
     )
 
 
 def _compare(args: argparse.Namespace) -> None:
-    from rag_engine.evaluation.compare import Arm, compare, load_outcomes
-    from rag_engine.evaluation.runs import answering_cost
+    from rag_engine.evaluation.audit import audit_runs
+    from rag_engine.evaluation.compare import compare
+    from rag_engine.evaluation.runs import load_arms
 
-    arms = []
+    specs = []
     for item in args.arm:
         name, _, folder = item.partition("=")
         if not folder:
             sys.exit(f"--arm expects NAME=RUN_DIR, got {item!r}")
-        run_dir = Path(folder)
-        arms.append(
-            Arm(
-                name, load_outcomes(run_dir / f"results-{args.judge}.json"), answering_cost(run_dir)
-            )
+        specs.append((name, Path(folder)))
+    audit = audit_runs(specs, args.judge)
+    if not audit.passed and not args.allow_differences:
+        print(audit.markdown())
+        sys.exit(
+            "the systems are not comparable like for like; fix that or pass --allow-differences"
         )
-    comparison = compare(arms, baseline=arms[0].name)
+    comparison = compare(load_arms(specs, args.judge), baseline=specs[0][0], audit=audit)
     args.out_md.parent.mkdir(parents=True, exist_ok=True)
     args.out_md.write_text(comparison.markdown, encoding="utf-8")
     args.out_json.write_text(json.dumps(comparison.data, indent=2), encoding="utf-8")
     print(comparison.markdown)
+
+
+def _append_searches(path: Path, searches: dict[str, dict[str, Any]], ids: dict[str, str]) -> None:
+    """Keep what each search did, appended so a resumed run adds to the earlier one."""
+    with path.open("a", encoding="utf-8") as handle:
+        for query, search in searches.items():
+            row = {"question_id": ids[query], **search}
+            handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+def _build_gate_fixture(args: argparse.Namespace) -> None:
+    from rag_engine.evaluation.gate import build_fixture
+
+    model, _, _ = scoring_speed(args.rerank)
+    count = build_fixture(
+        _questions(args.questions, None),
+        load_candidates(args.candidates),
+        load_scores(args.rerank),
+        args.out,
+        reranker=model,
+    )
+    print(f"wrote {count} questions to {args.out}")
+
+
+def _gate(args: argparse.Namespace) -> None:
+    from rag_engine.evaluation.gate import (
+        check_answer_report,
+        load_fixture,
+        make_baseline,
+        measure,
+        run_gate,
+        shipped_pipeline,
+    )
+
+    if args.update_baseline:
+        meta, cases = load_fixture(args.fixture)
+        pipeline = shipped_pipeline()
+        baseline = make_baseline(args.fixture, meta, pipeline, measure(cases, pipeline))
+        args.baseline.parent.mkdir(parents=True, exist_ok=True)
+        args.baseline.write_text(json.dumps(baseline, indent=2) + "\n", encoding="utf-8")
+        print(f"baseline written to {args.baseline}")
+        return
+    retrieval = run_gate(args.fixture, args.baseline)
+    print(retrieval.text)
+    problems = check_answer_report()
+    print("Answer comparison: " + ("consistent and like for like." if not problems else ""))
+    for problem in problems:
+        print(f"- {problem}")
+    if not retrieval.passed or problems:
+        sys.exit(1)
 
 
 def _write_selection(run_dir: Path, selection: list[Question]) -> Path:

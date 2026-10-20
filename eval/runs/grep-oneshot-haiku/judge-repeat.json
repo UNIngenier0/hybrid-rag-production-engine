@@ -1,0 +1,6 @@
+{
+  "judge": "repeat",
+  "model": "claude-haiku-5-5",
+  "no_correction": true,
+  "strip_citations": false
+}

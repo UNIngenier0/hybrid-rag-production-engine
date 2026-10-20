@@ -31,6 +31,8 @@ jobs:
         run: uv run mypy
       - name: Unit tests
         run: uv run pytest
+      - name: Evaluation regression gate
+        run: uv run python -m rag_engine.evaluation.cli gate
 
   stack:
     name: Docker stack smoke test

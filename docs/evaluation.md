@@ -109,6 +109,36 @@ CPU figures on the second machine are still to be measured.
 | Smaller GPU or fast CPU | `BAAI/bge-reranker-base` | 20 | 0.651 |
 | No reranker | none (BM25 weight 1.5) | | 0.622 |
 
+## Regression gate
+
+CI cannot run the real index, so it replays a fixture instead (`eval/baselines/gate-fixture.jsonl.gz`,
+0.9 MB): for each of the 470 questions with gold documents, the ranked chunks that dense search and
+BM25 returned from the real index (their documents and ranks, no text) and the reranker's score for
+the fused pool. The gate runs fusion, reranking and the metrics through the same code the service
+uses, with the settings the service ships with (read from the defaults of `Settings`), and compares
+four systems at 5 and 10 chunks with the committed baseline (`eval/baselines/retrieval.json`).
+
+```bash
+python -m rag_engine.evaluation.cli gate                    # what CI runs
+python -m rag_engine.evaluation.cli gate --update-baseline  # after reviewing a deliberate change
+python -m rag_engine.evaluation.cli build-gate-fixture --rerank <scores file>   # new candidates
+```
+
+- **What fails the build.** An overall metric (recall, any-gold hit, MRR, nDCG) that drops by more
+  than 0.005, a recall by question type that drops by more than 0.02, a fixture that changed
+  without a new baseline, or a shipped pipeline that differs from the one the baseline was
+  measured with. Improvements never fail; the gate prints them so the baseline can be raised.
+- **It is deterministic**, so any difference comes from a change in fusion, reranking, metrics or
+  settings. Today it reproduces the ablation exactly (hybrid 0.622 and hybrid + rerank 0.684 at 5
+  chunks).
+- **A new pool needs new scores.** If a settings change makes the reranker see chunks the fixture
+  has no score for, the gate stops with an error instead of guessing: score the new pool (on a GPU)
+  and rebuild the fixture.
+- **What it cannot see.** A change to the index itself (another embedding model or other chunking)
+  and anything that needs the live services or the model API. The answer-side check is a different
+  one: it verifies that the published comparison is consistent with the run folders it is built
+  from, and that the systems in it were compared like for like (next section).
+
 ## Answer evaluation
 
 Retrieval recall says whether the right documents reach the model; this part measures the answers
@@ -154,10 +184,12 @@ By question type, the combined score (12 questions each, so read the types as di
 | Iterative grep agent | 33.3 | 23.6 | 58.3 | 23.1 | 29.8 | 100.0 | 9.9 | 41.5 |
 | Single-attempt grep | 8.3 | 0.0 | 0.0 | 14.7 | 6.9 | 8.3 | 0.0 | 0.0 |
 
-- **One pass of hybrid retrieval and reranking beat the iterating agent**, by 10.7 points on the
-  combined score (the interval just excludes zero) and at about a twenty-fifth of the cost: $0.0008
+- **One pass of hybrid retrieval and reranking came out ahead of the iterating agent**, by 10.7
+  points on the combined score in this run and at about a twenty-fifth of the cost: $0.0008
   against $0.0202 per question. It also found much more of the gold evidence (72% of the gold
-  documents against 38%).
+  documents against 38%). How far ahead is less settled than the interval suggests: a second run
+  of our pipeline on the same questions was ahead by 6.4 (interval -4.7 to 17.4), so the direction
+  is consistent and the size is not ([fairness audit](#fairness-audit)).
 - **The agent wins exactly where one pass cannot reach**: `completeness` (41.5 against 16.7) and
   `project_related` (9.9 against 3.8), the questions that need many documents put together. Both
   are low for everyone, and they are the case for a retrieve-check-retrieve-again step.
@@ -166,6 +198,71 @@ By question type, the combined score (12 questions each, so read the types as di
 - **A single grep attempt is not a baseline worth fearing**: with no ranking beyond match counts, a
   common word brings back the longest threads, and for 74 of the 96 questions none of the five
   files held the answer (only 13 had any gold document among them).
+
+### Fairness audit
+
+A comparison is only worth reading if it is like for like. Two kinds of checks back this one.
+
+**Checked by code on every comparison.** `compare` refuses to write a report unless these hold, and
+CI re-checks them on the committed runs and verifies that the published numbers are what the run
+folders say (`eval/reports/answer-comparison.md` ends with the table):
+
+| Check | What it guarantees |
+|---|---|
+| Same questions | Every system answered the same 96, and each answered all of them |
+| Every answer scored | Nothing was dropped between answering and judging |
+| Same gold | The evaluator did not rewrite the gold answers for any system (`--no-correction`) |
+| Same judge | One judge model scored every system, confirmed by the usage report of each judging run |
+| Same answering model | Claude Haiku 5.5 behind every system, confirmed by each run's usage |
+| Same evidence budget | Our RAG and the single-attempt grep each hand the model 5 passages or files |
+| Same document rule | Both report the documents their answer cites |
+| Cost measured | Each system has a usage report with calls in it, or token counts; a metering report with no calls cannot pass as a cost of zero |
+
+What differs on purpose is recorded in the report: the agent decides for itself how much to read
+(its cost is reported next to its score), and its answers end with a source list, so the evaluator
+strips citations before judging, as the benchmark does by default.
+
+**Measured by `scripts/analysis/fairness_audit.py`** (offline, from the stored candidates and runs):
+
+- **The 96 questions flatter the reranker.** Reranking adds 0.154 document recall at 5 chunks on
+  those 96 questions, against 0.055 on the other 374 (0.076 on all 470). The best reranker is the
+  same on both groups, so the choice is not an artifact of the sample, but the sample's retrieval
+  advantage is larger than average.
+
+  | Questions | Hybrid | + `bge-reranker-v2-m3` | + `bge-reranker-base` | + `mxbai-rerank-base` |
+  |---|---|---|---|---|
+  | the 96 compared | 0.574 | 0.728 (+0.154) | 0.656 (+0.082) | 0.645 (+0.071) |
+  | the other 374 | 0.617 | 0.673 (+0.055) | 0.637 (+0.020) | 0.658 (+0.040) |
+
+- **Our pipeline on every question with gold documents scores 48.9** (53.4% correct), against 50.6
+  on the 96. The same 96 answered a second time, with a new generation and a new judgment, scored
+  46.3. One run on 96 questions therefore moves by about four points on its own.
+- **The judge is steady.** Judging the same answers a second time changed the combined score by at
+  most 0.8 points (50.6 to 50.4, 40.0 to 39.2, 4.8 to 4.8) and flipped 2, 2 and 0 of 96 verdicts. The
+  noise is in the answers, not in the scoring.
+- **The gap to the agent is not settled.** Ours minus the agent is +10.7 (+0.7 to +20.6) for the
+  first run and +6.4 (-4.7 to +17.4) for the second. Leaving out the three questions used to try the
+  prompts of each system gives +9.0 (-1.0 to +19.0). The agent ran once, and its own noise is
+  unknown: in its pilot it answered one of those three questions correctly and in the full run it
+  did not.
+- **The single-attempt grep is not held back by the search limit.** Its search returned no file for
+  13 of 96 questions (it never finished within the limit, or matched nothing). Had it answered all
+  13 perfectly it would score 18.3, still far below. What does hold it back is the ranking: its
+  patterns match thousands of files (4,874, 4,066 and 105,700 in a trial), and the five with the
+  most matches are rarely the right ones. New runs record every pattern, the number of files it
+  matched and whether the search was abandoned (`searches.jsonl`).
+- **What was evaluated is what ships.** Reranking used a pool fused with equal BM25 weight, while
+  the service's plain hybrid mode weighs BM25 1.5. The service now reranks the equal-weight pool
+  (`RERANK_SPARSE_WEIGHT`), and the running service was checked against the replay on 32 questions
+  ([retrieval.md](retrieval.md#checked-against-the-running-service)). Heavier BM25 showed no gain
+  after reranking (-0.007, interval -0.026 to +0.011).
+
+What can be said: against a single grep attempt the difference is large and robust. Against the
+iterating agent at equal model strength, one pass of hybrid retrieval and reranking is ahead by
+roughly 6 to 11 points at a twenty-fifth of the cost, but the 96 questions cannot separate that from
+no difference, and the agent is better on `completeness` and `project_related` questions. Settling it
+takes a second, disjoint sample of questions for every system, preferably on a faster machine (the
+agent took 2 hours 12 minutes here).
 
 ### Reproduce it
 
@@ -188,6 +285,16 @@ python -m rag_engine.evaluation.cli compare --arm "Hybrid + rerank (ours)=eval/r
     --arm "Single-attempt grep=eval/runs/grep-oneshot-haiku"
 ```
 
+The runs behind the fairness audit (under $2 more, judging included):
+
+```bash
+python -m rag_engine.evaluation.cli answer --run rag-haiku-all --per-type 1000 \
+    --rerank eval/cache/rerank-BAAI_bge-reranker-v2-m3.jsonl.gz    # every question with gold documents
+scripts/benchmark/evaluate.sh eval/runs/rag-haiku-all claude-haiku-5-5 3
+LABEL=repeat scripts/benchmark/evaluate.sh eval/runs/rag-haiku claude-haiku-5-5   # judge the same answers again
+uv run python scripts/analysis/fairness_audit.py                                  # the audit tables
+```
+
 The benchmark's agent and evaluator call the Anthropic API on their own, with no cost report and no
 cap. The scripts send their calls through a small metering proxy (`scripts/benchmark/meter_proxy.py`)
 that holds the real key, adds up what every call costs and refuses new calls once the budget is spent.
@@ -200,13 +307,15 @@ roughly $0.20 of earlier trial runs.
   was designed around stronger models and would likely do better with one; this comparison says
   how the systems compare at equal model strength, not how good an agent can be.
 - **One sample per question, 96 questions.** Newer models refuse a temperature setting, so a rerun
-  will not give identical answers, and with 12 questions per type the per-type figures are only
-  directional. The interval on the headline difference with the agent just excludes zero.
+  does not give identical answers; a second run of our pipeline moved the combined score by four
+  points (see the fairness audit). With 12 questions per type the per-type figures are only
+  directional.
 - **The judge is Claude Haiku 5.5**, a small model grading answers; it shares its blind spots with
   the system under test. Rescoring with a stronger judge (`evaluate.sh ... claude-sonnet-5-5`) costs
   a few dollars.
 - **Our retrieval replays stored candidates**: the candidates collected from the index and the
-  reranker scores computed on a GPU, with the equal-weight fusion the scores were computed on.
+  reranker scores computed on a GPU. The running service reproduces that replay (32 questions, see
+  [retrieval.md](retrieval.md#checked-against-the-running-service)).
 - **The single-attempt baseline's design matters.** Its ranking is by match count, the only ranking
   grep has. A smarter way to order files would score higher.
 - **The cost of the first 28 single-attempt answers is estimated**, because a crash lost their usage

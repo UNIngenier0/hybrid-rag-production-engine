@@ -31,3 +31,8 @@ eval/cache/
 
 # The agent run copies the benchmark questions (with gold answers) next to its answers.
 eval/runs/*/questions.jsonl
+# Small runs made by scripts/e2e.sh
+eval/runs/e2e-*/
+eval/runs/e2e-comparison.*
+# The metering proxy's log, kept next to each usage report
+eval/runs/*/*.proxy.log

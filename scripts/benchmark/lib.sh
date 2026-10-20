@@ -7,7 +7,7 @@
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BENCH="data/benchmark/EnterpriseRAG-Bench"
 NETWORK="rag-bench-net"
-METER="rag-meter"
+METER="${METER:-rag-meter}"
 
 require_benchmark() {
     [ -d "$ROOT/$BENCH/generated_data/sources" ] || {
@@ -42,9 +42,11 @@ meter_usage() {
         "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8080/__usage').read().decode())"
 }
 
-# meter_stop FILE: save the final usage report to FILE and remove the proxy.
+# meter_stop FILE: save the final usage report to FILE and remove the proxy. The proxy's own log
+# is kept next to it, which is what to read when a report shows fewer calls than expected.
 meter_stop() {
     meter_usage | tee "$1"
+    docker logs "$METER" > "${1%.json}.proxy.log" 2>&1 || true
     docker rm -f "$METER" > /dev/null 2>&1 || true
 }
 

@@ -1,0 +1,173 @@
+{
+  "fixture": {
+    "sha256": "058cc8891894e35c0c6b1cba87789f5b45e0646852e11948ee3a50b50110ee1a",
+    "questions": 470,
+    "reranker": "BAAI/bge-reranker-v2-m3"
+  },
+  "pipeline": {
+    "candidates_per_retriever": 50,
+    "rrf_k": 60,
+    "dense_weight": 1.0,
+    "sparse_weight": 1.5,
+    "rerank_sparse_weight": 1.0,
+    "rerank_pool": 30
+  },
+  "tolerance": {
+    "overall": 0.005,
+    "by_type": 0.02
+  },
+  "metrics": {
+    "dense": {
+      "5": {
+        "overall": {
+          "recall": 0.490816,
+          "hit": 0.56383,
+          "mrr": 0.469504,
+          "ndcg": 0.442822
+        },
+        "by_type": {
+          "basic": 0.628571,
+          "completeness": 0.184583,
+          "conflicting_info": 0.675,
+          "constrained": 0.783333,
+          "intra_document_reasoning": 0.6,
+          "miscellaneous": 0.85,
+          "project_related": 0.324792,
+          "semantic": 0.208
+        }
+      },
+      "10": {
+        "overall": {
+          "recall": 0.54,
+          "hit": 0.612766,
+          "mrr": 0.477182,
+          "ndcg": 0.463342
+        },
+        "by_type": {
+          "basic": 0.674286,
+          "completeness": 0.244583,
+          "conflicting_info": 0.75,
+          "constrained": 0.833333,
+          "intra_document_reasoning": 0.7,
+          "miscellaneous": 0.85,
+          "project_related": 0.397708,
+          "semantic": 0.24
+        }
+      }
+    },
+    "bm25": {
+      "5": {
+        "overall": {
+          "recall": 0.601344,
+          "hit": 0.676596,
+          "mrr": 0.593972,
+          "ndcg": 0.56276
+        },
+        "by_type": {
+          "basic": 0.731429,
+          "completeness": 0.330893,
+          "conflicting_info": 0.825,
+          "constrained": 0.8,
+          "intra_document_reasoning": 0.925,
+          "miscellaneous": 0.9,
+          "project_related": 0.387847,
+          "semantic": 0.296
+        }
+      },
+      "10": {
+        "overall": {
+          "recall": 0.673531,
+          "hit": 0.731915,
+          "mrr": 0.602886,
+          "ndcg": 0.594213
+        },
+        "by_type": {
+          "basic": 0.782857,
+          "completeness": 0.530754,
+          "conflicting_info": 0.875,
+          "constrained": 0.866667,
+          "intra_document_reasoning": 0.975,
+          "miscellaneous": 0.95,
+          "project_related": 0.511111,
+          "semantic": 0.376
+        }
+      }
+    },
+    "hybrid": {
+      "5": {
+        "overall": {
+          "recall": 0.621876,
+          "hit": 0.704255,
+          "mrr": 0.60383,
+          "ndcg": 0.575571
+        },
+        "by_type": {
+          "basic": 0.748571,
+          "completeness": 0.336726,
+          "conflicting_info": 0.725,
+          "constrained": 0.85,
+          "intra_document_reasoning": 0.975,
+          "miscellaneous": 0.95,
+          "project_related": 0.388681,
+          "semantic": 0.328
+        }
+      },
+      "10": {
+        "overall": {
+          "recall": 0.693608,
+          "hit": 0.759574,
+          "mrr": 0.611805,
+          "ndcg": 0.605588
+        },
+        "by_type": {
+          "basic": 0.811429,
+          "completeness": 0.512004,
+          "conflicting_info": 0.875,
+          "constrained": 0.883333,
+          "intra_document_reasoning": 1.0,
+          "miscellaneous": 1.0,
+          "project_related": 0.493889,
+          "semantic": 0.4
+        }
+      }
+    },
+    "hybrid+rerank": {
+      "5": {
+        "overall": {
+          "recall": 0.683962,
+          "hit": 0.755319,
+          "mrr": 0.665319,
+          "ndcg": 0.63785
+        },
+        "by_type": {
+          "basic": 0.805714,
+          "completeness": 0.370476,
+          "conflicting_info": 0.95,
+          "constrained": 0.883333,
+          "intra_document_reasoning": 0.95,
+          "miscellaneous": 1.0,
+          "project_related": 0.413819,
+          "semantic": 0.424
+        }
+      },
+      "10": {
+        "overall": {
+          "recall": 0.720239,
+          "hit": 0.778723,
+          "mrr": 0.668752,
+          "ndcg": 0.654256
+        },
+        "by_type": {
+          "basic": 0.84,
+          "completeness": 0.507698,
+          "conflicting_info": 0.95,
+          "constrained": 0.916667,
+          "intra_document_reasoning": 0.975,
+          "miscellaneous": 1.0,
+          "project_related": 0.521458,
+          "semantic": 0.44
+        }
+      }
+    }
+  }
+}

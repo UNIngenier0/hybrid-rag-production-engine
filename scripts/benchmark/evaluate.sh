@@ -8,6 +8,10 @@
 # claude-sonnet-5-5 for a stronger and pricier one) and the budget to 2 dollars.
 # Needs scripts/benchmark/setup.sh to have run, Docker, and ANTHROPIC_API_KEY in .env.
 #
+# LABEL=<name> names the output files instead of the judge model, so the same answers can be judged
+# again (to see how much the judge moves between identical runs) without overwriting the first
+# judgment: results-<name>.json, cost-judge-<name>.json and judge-<name>.json.
+#
 # STRIP_CITATIONS=1 lets the evaluator remove citations and source lines from the answers first,
 # which the benchmark does by default and which suits the agent, whose answers end with sources.
 # Our own answers are written without citation markers and do not need it.
@@ -23,16 +27,25 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 run="${1:?usage: evaluate.sh eval/runs/<run> [judge-model] [budget-usd]}"
 judge="${2:-claude-haiku-5-5}"
 budget="${3:-2}"
+label="${LABEL:-$judge}"
 [ -f "$ROOT/$run/answers.jsonl" ] || { echo "no answers.jsonl in $run" >&2; exit 1; }
 require_benchmark
 
 strip_flag="--skip-citation-stripping"
 [ "${STRIP_CITATIONS:-0}" = 1 ] && strip_flag=""
 
-meter_start "$budget"
-trap 'meter_stop "$ROOT/$run/cost-judge-$judge.json" || true' EXIT
+# How the run is judged is recorded next to its results, so a comparison can check it.
+python3 - "$ROOT/$run/judge-$label.json" "$label" "$judge" "${STRIP_CITATIONS:-0}" <<'PY'
+import json, sys
+path, label, model, strip = sys.argv[1:5]
+manifest = {"judge": label, "model": model, "no_correction": True, "strip_citations": strip == "1"}
+open(path, "w").write(json.dumps(manifest, indent=2) + "\n")
+PY
 
-docker run --rm --network "$NETWORK" "${BENCH_ENV[@]}" -e JUDGE="$judge" -e RUN="$run" -e STRIP_FLAG="$strip_flag" \
+meter_start "$budget"
+trap 'meter_stop "$ROOT/$run/cost-judge-$label.json" || true' EXIT
+
+docker run --rm --network "$NETWORK" "${BENCH_ENV[@]}" -e JUDGE="$judge" -e LABEL="$label" -e RUN="$run" -e STRIP_FLAG="$strip_flag" \
     -v "$ROOT":/work -w "/work/$BENCH" -v bench_venv:/venv python:3.12.15-slim bash -c '
 set -euo pipefail
 [ -x /venv/bin/python ] || python -m venv /venv
@@ -40,7 +53,7 @@ set -euo pipefail
 export LLM_MODEL_NAME="$JUDGE" CHEAP_LLM_MODEL_NAME="$JUDGE"
 /venv/bin/python -m src.scripts.answer_evaluation.metrics_based_eval \
     --answers-file "/work/$RUN/answers.jsonl" \
-    --results-file "/work/$RUN/results-$JUDGE.json" \
+    --results-file "/work/$RUN/results-$LABEL.json" \
     --questions-file questions.jsonl \
     --no-correction $STRIP_FLAG --parallelism 6
 '

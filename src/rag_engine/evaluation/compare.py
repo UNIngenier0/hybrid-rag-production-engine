@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from rag_engine.evaluation.audit import Audit
 from rag_engine.evaluation.metrics import paired_difference
 
 
@@ -56,7 +57,7 @@ def load_outcomes(results_file: Path) -> dict[str, Outcome]:
     return outcomes
 
 
-def compare(arms: Sequence[Arm], baseline: str) -> Comparison:
+def compare(arms: Sequence[Arm], baseline: str, audit: Audit | None = None) -> Comparison:
     """Tables over the questions every system answered, so each comparison is paired."""
     common = sorted(set.intersection(*(set(arm.outcomes) for arm in arms)))
     base = next(arm for arm in arms if arm.name == baseline)
@@ -122,6 +123,16 @@ def compare(arms: Sequence[Arm], baseline: str) -> Comparison:
         lines.append(
             f"| {arm.name} | " + " | ".join(f"{100 * _mean(by_type[t]):.1f}" for t in types) + " |"
         )
+    if audit is not None:
+        lines += ["", audit.markdown().rstrip("\n")]
+        data["audit"] = {
+            "passed": audit.passed,
+            "checks": [
+                {"name": check.name, "passed": check.passed, "detail": check.detail}
+                for check in audit.checks
+            ],
+            "notes": audit.notes,
+        }
     return Comparison("\n".join(lines) + "\n", data)
 
 

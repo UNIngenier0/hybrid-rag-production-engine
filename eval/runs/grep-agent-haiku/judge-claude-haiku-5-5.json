@@ -1,0 +1,7 @@
+{
+  "judge": "claude-haiku-5-5",
+  "model": "claude-haiku-5-5",
+  "no_correction": true,
+  "strip_citations": true,
+  "note": "Written after the run, from the command that produced it; later runs record this themselves. Citation stripping is inferred from the judge's 846 calls against 750 for the others."
+}

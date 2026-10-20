@@ -109,5 +109,6 @@ class LazyRetriever:
                 rrf_k=settings.rrf_k,
                 dense_weight=settings.rrf_dense_weight,
                 sparse_weight=settings.rrf_sparse_weight,
+                rerank_sparse_weight=settings.rerank_sparse_weight,
             ),
         )

@@ -210,3 +210,33 @@ async def test_a_search_that_never_finishes_counts_as_finding_nothing(tmp_path: 
 
     assert result.hits == []
     assert retriever.plans["what is redwood?"] == SearchPlan("redwood", ())
+
+
+async def test_each_search_is_recorded_so_a_timeout_can_be_told_from_no_match(
+    tmp_path: Path,
+) -> None:
+    doc = write_doc(tmp_path, "slack", "a", "dsid_a", "clamp")
+
+    def searcher(plan: SearchPlan, corpus: Path) -> list[FileMatch]:
+        if plan.pattern == "redwood":
+            raise subprocess.TimeoutExpired("rg", 300)
+        return [FileMatch(doc, 1)] if plan.pattern == "clamp" else []
+
+    llm = FakeLLM(
+        '{"pattern": "clamp"}', '{"pattern": "redwood"}', '{"pattern": "absent"}', "not json"
+    )
+    retriever = GrepRetriever(llm, tmp_path, searcher=searcher)
+
+    for query in ("found?", "slow?", "nothing?", "unplanned?"):
+        await retriever.retrieve(query)
+
+    assert retriever.searches["found?"] == {
+        "pattern": "clamp",
+        "sources": [],
+        "files_found": 1,
+        "timed_out": False,
+    }
+    assert retriever.searches["slow?"]["timed_out"] is True
+    assert retriever.searches["nothing?"]["files_found"] == 0
+    assert retriever.searches["nothing?"]["timed_out"] is False
+    assert retriever.searches["unplanned?"]["pattern"] is None

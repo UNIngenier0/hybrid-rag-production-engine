@@ -1,0 +1,9 @@
+{
+  "system": "grep-agent",
+  "model": "claude-haiku-5-5",
+  "passages": null,
+  "documents": "reported by the agent",
+  "parallelism": 4,
+  "budget_usd": 6.0,
+  "note": "Written after the run, from the command that produced it; later runs record this themselves. The benchmark's own agent (src.scripts.answer_generation.agent_retrieval)."
+}

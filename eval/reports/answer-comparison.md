@@ -15,3 +15,22 @@
 | Hybrid + rerank (ours) | 56.9 | 16.7 | 73.1 | 67.2 | 58.3 | 95.6 | 3.8 | 33.3 |
 | Iterative grep agent | 33.3 | 41.5 | 29.8 | 23.1 | 58.3 | 100.0 | 9.9 | 23.6 |
 | Single-attempt grep | 8.3 | 0.0 | 6.9 | 14.7 | 0.0 | 8.3 | 0.0 | 0.0 |
+
+## Fairness checks
+
+| Check | Result | Detail |
+|---|---|---|
+| same questions | pass | 96 questions |
+| every question answered | pass | all answered |
+| every answer scored | pass | all scored |
+| same gold answers for everyone | pass | judged against the original gold set (no correction) |
+| same judge | pass | claude-haiku-5-5 for every system (claude-haiku-5-5) |
+| same answering model | pass | claude-haiku-5-5 for every system |
+| same evidence budget for single-pass systems | pass | 5 passages or files per question for Hybrid + rerank (ours), Single-attempt grep |
+| same document-reporting rule | pass | documents reported = cited for Hybrid + rerank (ours), Single-attempt grep |
+| cost measured for every system | pass | every system has a usage report or token counts |
+
+Differences that remain by design:
+
+- Iterative grep agent decides for itself how much to read and search (cost and time are reported next to its score).
+- Iterative grep agent: answers end with a source list, so the evaluator removes citations before judging, as the benchmark does by default.
