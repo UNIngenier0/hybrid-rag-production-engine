@@ -303,8 +303,9 @@ class FakeLLM:
 class FakeRetriever:
     """Returns the same hits for any query, as a retriever would, and records the calls."""
 
-    def __init__(self, hits: list[ChunkHit]) -> None:
+    def __init__(self, hits: list[ChunkHit], error: Exception | None = None) -> None:
         self.hits = hits
+        self.error = error
         self.calls: list[dict[str, object]] = []
 
     async def retrieve(
@@ -316,7 +317,20 @@ class FakeRetriever:
         limit: int | None = None,
         include_context: bool = False,
     ) -> RetrievalResult:
+        if self.error is not None:
+            raise self.error
         self.calls.append(
-            {"query": query, "mode": mode, "limit": limit, "include_context": include_context}
+            {
+                "query": query,
+                "mode": mode,
+                "limit": limit,
+                "include_context": include_context,
+                "filters": filters,
+            }
         )
-        return RetrievalResult(query=query, mode=mode, hits=self.hits[: limit or len(self.hits)])
+        return RetrievalResult(
+            query=query,
+            mode=mode,
+            hits=self.hits[: limit or len(self.hits)],
+            timings_ms={"total": 2.0},
+        )

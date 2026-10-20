@@ -104,7 +104,13 @@ async def test_the_retriever_is_asked_for_passages_with_their_parent_context() -
     await AnswerGenerator(retriever, FakeLLM("x [1]"), mode="hybrid", chunks=4).answer("question?")
 
     assert retriever.calls == [
-        {"query": "question?", "mode": "hybrid", "limit": 4, "include_context": True}
+        {
+            "query": "question?",
+            "mode": "hybrid",
+            "limit": 4,
+            "include_context": True,
+            "filters": None,
+        }
     ]
 
 
@@ -149,3 +155,27 @@ async def test_a_reply_with_no_text_is_a_failure_not_an_empty_answer() -> None:
 
     with pytest.raises(LLMError, match="no text"):
         await AnswerGenerator(FakeRetriever([make_hit("a")]), FakeLLM("  \n")).answer("q?")
+
+
+async def test_a_question_can_override_the_mode_the_chunks_and_the_filters() -> None:
+    from rag_engine.core.models import SearchFilters
+
+    retriever = FakeRetriever([make_hit("a")])
+    generator = AnswerGenerator(retriever, FakeLLM("x [1]"), mode="hybrid", chunks=4)
+    filters = SearchFilters(doc_ids=("d1",))
+
+    answer = await generator.answer("question?", mode="dense", chunks=2, filters=filters)
+
+    call = retriever.calls[0]
+    assert (call["mode"], call["limit"], call["filters"]) == ("dense", 2, filters)
+    assert answer.mode == "dense"
+
+
+async def test_the_answer_carries_the_passages_it_was_built_from_and_its_timings() -> None:
+    hit = make_hit("a", doc_id="d1", context="the passage")
+
+    answer = await AnswerGenerator(FakeRetriever([hit]), FakeLLM("x [1]")).answer("question?")
+
+    assert [(b.number, b.doc_id, b.text) for b in answer.blocks] == [(1, "d1", "the passage")]
+    assert answer.retrieval_timings_ms == {"total": 2.0}
+    assert answer.generation_ms >= 0

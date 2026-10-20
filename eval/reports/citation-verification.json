@@ -1,0 +1,30 @@
+{
+  "answers": 96,
+  "failed": 0,
+  "answers_all_verified": 24,
+  "judge_errors": {},
+  "statuses": {
+    "verified": 442,
+    "uncited": 119,
+    "no_claim": 59,
+    "partially_supported": 38,
+    "unsupported": 9
+  },
+  "planted": [
+    {
+      "kind": "wrong citation",
+      "planted": 354,
+      "flagged": 351,
+      "judge_flagged": 309,
+      "ambiguous": 30
+    },
+    {
+      "kind": "wrong number",
+      "planted": 184,
+      "flagged": 180,
+      "judge_flagged": 176,
+      "ambiguous": 0
+    }
+  ],
+  "cost_usd": 0.3059
+}

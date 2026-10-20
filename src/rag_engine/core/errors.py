@@ -11,3 +11,7 @@ class BudgetExceededError(Exception):
 
 class RetrievalUnavailableError(Exception):
     """Retrieval cannot run at all, for example because a model or a data service cannot load."""
+
+
+class GenerationUnavailableError(Exception):
+    """Answers cannot be generated at all, for example because no model credentials are set."""

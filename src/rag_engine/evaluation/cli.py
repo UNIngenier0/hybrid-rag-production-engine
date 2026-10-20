@@ -7,6 +7,7 @@ answer    generate the answers of a run from the stored candidates (needs Postgr
 grep-answer  the single-attempt grep baseline: one pattern, one search, the same answer step
 compare   compare systems on the answers they gave, from the evaluator's results files
 gate      replay the retrieval fixture and check the committed answer comparison (CI)
+verify-check  plant wrong citations and values in real answers to test the citation check
 build-gate-fixture  write the fixture the gate replays, from the stored candidates
 report    compare retrievers, fusion settings and rerankers offline and write the ablation
 """
@@ -133,6 +134,29 @@ def _parser() -> argparse.ArgumentParser:
         "--out-json", type=Path, default=Path("eval/reports/answer-comparison.json")
     )
     comparison.set_defaults(handler=_compare)
+
+    check = commands.add_parser(
+        "verify-check", help="test the citation check by planting wrong citations and values"
+    )
+    check.add_argument("--questions", type=Path, default=DEFAULT_QUESTIONS)
+    check.add_argument("--candidates", type=Path, default=DEFAULT_CANDIDATES)
+    check.add_argument("--rerank", metavar="SCORES_FILE", type=Path, required=True)
+    check.add_argument("--per-type", type=int, default=12, help="questions of each type")
+    check.add_argument("--seed", type=int, default=0)
+    check.add_argument("--limit", type=int, help="only the first N of the selection")
+    check.add_argument("--chunks", type=int, default=5)
+    check.add_argument("--model", help="writes the answers; defaults to LLM_MODEL")
+    check.add_argument("--judge-model", help="checks the citations; defaults to the same model")
+    check.add_argument("--budget-usd", type=float, default=1.0)
+    check.add_argument("--concurrency", type=int, default=4)
+    check.add_argument("--out-md", type=Path, default=Path("eval/reports/citation-verification.md"))
+    check.add_argument(
+        "--out-json", type=Path, default=Path("eval/reports/citation-verification.json")
+    )
+    check.add_argument(
+        "--sample-out", type=Path, help="write verified statements with their passages to read"
+    )
+    check.set_defaults(handler=_verify_check)
 
     fixture = commands.add_parser(
         "build-gate-fixture", help="write the fixture the regression gate replays"
@@ -298,6 +322,76 @@ async def _answer_async(args: argparse.Namespace, settings: "Settings") -> None:
         f"\n{summary}\nspent ${meter.spent_usd:.4f} on {meter.calls} calls "
         f"({meter.input_tokens} tokens in, {meter.output_tokens} out); run folder: {run_dir}"
     )
+
+
+def _verify_check(args: argparse.Namespace) -> None:
+    from rag_engine.core.config import get_settings
+
+    asyncio.run(_verify_check_async(args, get_settings()))
+
+
+async def _verify_check_async(args: argparse.Namespace, settings: "Settings") -> None:
+    from dataclasses import asdict
+
+    from rag_engine.adapters.anthropic_llm import AnthropicClient
+    from rag_engine.adapters.postgres_documents import PostgresDocumentStore
+    from rag_engine.evaluation.stored import StoredRetriever
+    from rag_engine.evaluation.verification_check import check_verification, render
+    from rag_engine.generation.answer import AnswerGenerator
+    from rag_engine.generation.cost import CostMeter, MeteredLLM
+    from rag_engine.generation.query import QueryService
+    from rag_engine.generation.verify import CitationVerifier
+
+    if settings.anthropic_api_key is None:
+        sys.exit("ANTHROPIC_API_KEY is not set; put it in .env")
+    everything = load_questions(args.questions)
+    selection = stratified_subset(with_gold_documents(everything), args.per_type, seed=args.seed)
+    selection = selection[: args.limit] if args.limit else selection
+    key = settings.anthropic_api_key.get_secret_value()
+    meter = CostMeter(args.budget_usd)
+    writer = AnthropicClient(key, args.model or settings.llm_model)
+    judge = AnthropicClient(key, args.judge_model or args.model or settings.llm_model)
+    store = await PostgresDocumentStore.connect(settings.database_url.get_secret_value())
+    try:
+        retriever = StoredRetriever(
+            everything, load_candidates(args.candidates), load_scores(args.rerank), store
+        )
+        generator = AnswerGenerator(
+            retriever,
+            MeteredLLM(writer, meter),
+            mode="hybrid+rerank",
+            chunks=args.chunks,
+            max_tokens=settings.llm_max_tokens,
+        )
+        verifier = CitationVerifier(MeteredLLM(judge, meter), max_tokens=settings.llm_max_tokens)
+        report = await check_verification(
+            selection,
+            QueryService(generator, verifier),
+            verifier,
+            seed=args.seed,
+            concurrency=args.concurrency,
+        )
+    finally:
+        await writer.aclose()
+        await judge.aclose()
+        await store.close()
+    report.cost_usd = meter.spent_usd  # everything the check spent, planted damage included
+    args.out_md.parent.mkdir(parents=True, exist_ok=True)
+    args.out_md.write_text(render(report), encoding="utf-8")
+    summary = {
+        "answers": report.answers,
+        "failed": report.failed,
+        "answers_all_verified": report.answers_all_verified,
+        "judge_errors": dict(report.judge_errors),
+        "statuses": dict(report.statuses),
+        "planted": [asdict(outcome) for outcome in report.outcomes],
+        "cost_usd": round(report.cost_usd, 4),
+    }
+    args.out_json.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    if args.sample_out:
+        review = {"verified": report.sample, "flagged": report.flagged}
+        args.sample_out.write_text(json.dumps(review, indent=2), encoding="utf-8")
+    print(render(report))
 
 
 def _grep_answer(args: argparse.Namespace) -> None:

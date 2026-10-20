@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -76,11 +76,23 @@ class Settings(BaseSettings):
     llm_model: str = "claude-haiku-5-5"
     # Newer models may reason before they write, and that reasoning counts against the limit.
     llm_max_tokens: int = Field(default=4000, gt=0)
+    # POST /v1/query. The answer is written from this many passages (the reranked best ones).
+    query_chunks: int = Field(default=5, ge=1, le=10)
+    # A judge model checks that each cited statement is in the passage it cites. It defaults to the
+    # answering model; a stronger one makes the check stricter and costs more.
+    verify_citations: bool = True
+    verification_model: str | None = None
 
     # Bulk ingestion.
     dataset_path: Path = Path("data/raw/documents/test.parquet")
     vectors_dir: Path = Path("data/vectors")
     ingest_batch_size: int = Field(default=200, gt=0)
+
+    @field_validator("anthropic_api_key", "verification_model", mode="before")
+    @classmethod
+    def _empty_means_unset(cls, value: object) -> object:
+        """Docker Compose passes an unset variable as an empty string: that means "not set"."""
+        return None if isinstance(value, str) and not value.strip() else value
 
 
 @lru_cache

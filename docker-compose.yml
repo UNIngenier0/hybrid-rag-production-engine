@@ -18,6 +18,12 @@ services:
       HF_TOKEN: ${HF_TOKEN:-}
       # Names the cross-encoder that enables the `hybrid+rerank` mode; empty leaves it off.
       RERANKER_MODEL: ${RERANKER_MODEL:-}
+      # Enables POST /v1/query; without a key the endpoint answers 503 and says why.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-claude-haiku-5-5}
+      VERIFICATION_MODEL: ${VERIFICATION_MODEL:-}
+      VERIFY_CITATIONS: ${VERIFY_CITATIONS:-true}
+      QUERY_CHUNKS: ${QUERY_CHUNKS:-5}
     volumes:
       - hf_cache:/cache/huggingface
     depends_on:

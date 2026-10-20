@@ -5,12 +5,16 @@ import logging
 
 from qdrant_client import AsyncQdrantClient
 
+from rag_engine.adapters.anthropic_llm import AnthropicClient
 from rag_engine.adapters.postgres_documents import PostgresDocumentStore
 from rag_engine.adapters.qdrant_index import QdrantChunkIndex
 from rag_engine.core.config import Settings
 from rag_engine.core.errors import RetrievalUnavailableError
 from rag_engine.core.models import RetrievalMode, RetrievalResult, SearchFilters
-from rag_engine.core.ports import Reranker
+from rag_engine.core.ports import Reranker, Retriever
+from rag_engine.generation.answer import AnswerGenerator
+from rag_engine.generation.query import QueryService
+from rag_engine.generation.verify import CitationVerifier
 from rag_engine.indexing.embedders import SentenceTransformerEmbedder
 from rag_engine.indexing.sparse import Bm25SparseEncoder
 from rag_engine.retrieval.cross_encoder import CrossEncoderReranker
@@ -112,3 +116,30 @@ class LazyRetriever:
                 rerank_sparse_weight=settings.rerank_sparse_weight,
             ),
         )
+
+
+def build_query_service(
+    settings: Settings, retriever: Retriever
+) -> tuple[QueryService, list[AnthropicClient]] | None:
+    """The answer pipeline over `retriever`, or None when no model key is configured. The clients
+    are returned so the application can close them."""
+    if settings.anthropic_api_key is None:
+        return None
+    key = settings.anthropic_api_key.get_secret_value()
+    writer = AnthropicClient(key, settings.llm_model, base_url=settings.anthropic_base_url)
+    clients = [writer]
+    judge = writer
+    if settings.verification_model and settings.verification_model != settings.llm_model:
+        judge = AnthropicClient(
+            key, settings.verification_model, base_url=settings.anthropic_base_url
+        )
+        clients.append(judge)
+    generator = AnswerGenerator(
+        retriever,
+        writer,
+        mode="hybrid+rerank" if settings.reranker_model else "hybrid",
+        chunks=settings.query_chunks,
+        max_tokens=settings.llm_max_tokens,
+    )
+    verifier = CitationVerifier(judge, max_tokens=settings.llm_max_tokens)
+    return QueryService(generator, verifier), clients
