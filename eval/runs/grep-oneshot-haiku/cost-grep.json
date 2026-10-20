@@ -1,0 +1,17 @@
+{
+  "budget_usd": 1.0,
+  "spent_usd": 0.091145,
+  "calls": 136,
+  "refused_after_budget": 0,
+  "by_model": {
+    "claude-haiku-5-5": {
+      "calls": 136,
+      "input_tokens": 396354,
+      "output_tokens": 49851,
+      "usd": 0.06456089999999999
+    }
+  },
+  "metered_usd": 0.064561,
+  "estimated_usd": 0.026584,
+  "note": "The first 28 questions ran before a crash that lost their usage report; their cost is estimated at the per-question rate of the 68 metered ones."
+}

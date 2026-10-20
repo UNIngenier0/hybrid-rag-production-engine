@@ -1,0 +1,17 @@
+# Answer comparison
+
+96 questions answered by every system, scored by the benchmark's evaluator against the original gold answers and documents. *Combined* is the benchmark's score: the mean over questions of completeness, counted as zero when the answer is not correct. The judge is a Claude model, not the GPT model of the public leaderboard, so these numbers are not comparable with it. `*` marks a paired difference whose 95% interval excludes zero.
+
+| System | Correct | Completeness | Combined | Doc recall | Invalid extra docs | Combined vs Hybrid + rerank (ours) | Cost of the answers |
+|---|---|---|---|---|---|---|---|
+| Hybrid + rerank (ours) | 56.2% | 61.8% | **50.6** | 72.3% | 0.95 |  | $0.08 ($0.0008 per question) |
+| Iterative grep agent | 42.7% | 49.8% | **40.0** | 38.2% | 0.50 | -10.7 (-20.6, -0.7)* | $1.94 ($0.0202 per question) |
+| Single-attempt grep | 5.2% | 15.8% | **4.8** | 9.0% | 1.72 | -45.8 (-55.5, -36.2)* | $0.09 ($0.0009 per question) |
+
+## Combined score by question type
+
+| System | basic (12) | completeness (12) | conflicting_info (12) | constrained (12) | intra_document_reasoning (12) | miscellaneous (12) | project_related (12) | semantic (12) |
+|---|---|---|---|---|---|---|---|---|
+| Hybrid + rerank (ours) | 56.9 | 16.7 | 73.1 | 67.2 | 58.3 | 95.6 | 3.8 | 33.3 |
+| Iterative grep agent | 33.3 | 41.5 | 29.8 | 23.1 | 58.3 | 100.0 | 9.9 | 23.6 |
+| Single-attempt grep | 8.3 | 0.0 | 6.9 | 14.7 | 0.0 | 8.3 | 0.0 | 0.0 |

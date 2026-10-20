@@ -28,3 +28,6 @@ htmlcov/
 
 # Evaluation caches (candidate lists, reranker scores) are large and reproducible.
 eval/cache/
+
+# The agent run copies the benchmark questions (with gold answers) next to its answers.
+eval/runs/*/questions.jsonl

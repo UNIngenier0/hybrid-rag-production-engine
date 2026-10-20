@@ -610,6 +610,8 @@ Initial goals, to be revised after the first measured baseline.
 | Ingestion safety | Duplicate chunks after re-uploading an unchanged document | 0 |
 | Regression safety | CI fails when a tracked metric drops beyond tolerance | Enabled from Phase 4 |
 
+**First measured results** (96 EnterpriseRAG-Bench questions, 12 of each of eight types, Claude Haiku 5.5 for every system and as the judge, so not comparable with the public leaderboard): hybrid retrieval with reranking scores 50.6 on the benchmark's combined correctness-and-completeness measure, the benchmark's own iterative grep agent 40.0 and a single-attempt grep 4.8. The reranked pipeline is ahead of the agent by 10.7 points (95% interval 0.7 to 20.6) at a twenty-fifth of the cost per question, and the agent wins on the questions that need many documents put together. Details and limits are in [docs/evaluation.md](docs/evaluation.md#answer-evaluation).
+
 ---
 
 ## 5. Roadmap
@@ -620,7 +622,7 @@ Initial goals, to be revised after the first measured baseline.
 | 1 | Project skeleton | FastAPI app, settings, Docker Compose with Qdrant, PostgreSQL and Redis, health endpoints, structured JSON logs with request IDs, lint, type-check and test CI | Done |
 | 2 | Ingestion at scale | Parquet dataset connector, dataset profiling (document lengths, chunk counts), source-aware chunking, embeddings, dense and BM25 indexing, idempotent bulk load of the full corpus with checkpoint and resume, sizing report | Done: the full corpus is indexed (3,064,558 chunks with dense and BM25 vectors); see the [ingestion report](docs/ingestion-report.md) |
 | 3 | Hybrid retrieval | Dense and BM25 retrievers, RRF fusion, metadata filters, retrieval modes, parent-passage context, `POST /v1/search` | Done; see [docs/retrieval.md](docs/retrieval.md). Dense latency on the 6 GB development VM misses the 1 second target |
-| 4 | Evaluation harness and reranking | EnterpriseRAG-Bench runner with per-category results, retrieval metrics, cross-encoder reranker, first ablation report, CI regression gate, and two grep baselines to measure against (an LLM agent that searches with grep in a loop, and a single-attempt grep), run with the same LLM and judge | In progress: retrieval harness, reranker and ablation done ([report](eval/reports/retrieval-ablation.md), [notes](docs/evaluation.md)); answer evaluation, grep baselines and the CI gate next |
+| 4 | Evaluation harness and reranking | EnterpriseRAG-Bench runner with per-category results, retrieval metrics, cross-encoder reranker, first ablation report, CI regression gate, and two grep baselines to measure against (an LLM agent that searches with grep in a loop, and a single-attempt grep), run with the same LLM and judge | In progress: retrieval harness, reranker and ablation done ([report](eval/reports/retrieval-ablation.md)); answer evaluation against the iterative and single-attempt grep baselines done on 96 questions ([comparison](eval/reports/answer-comparison.md), [notes](docs/evaluation.md#answer-evaluation)); CI regression gate next |
 | 5 | Grounded generation | Prompting, LLM adapters, citation verification, abstention policy, conflict-aware answering, RAGAS metrics | Planned |
 | 6 | Production hardening | Auth, rate limiting, caching, tracing, Prometheus and Grafana, load test | Planned |
 | 7 | Results and write-up | Full benchmark results and ablation study, leaderboard submission with a reproduction guide, demo UI, lessons learned | Planned |

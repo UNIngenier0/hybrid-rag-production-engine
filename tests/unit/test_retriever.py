@@ -126,13 +126,10 @@ async def test_each_retriever_searches_at_least_as_deep_as_the_limit() -> None:
     await retriever.retrieve("query", limit=30)
     await retriever.retrieve("query", limit=80)
 
+    # The two searches start in whichever order their query vectors are ready, so compare per query.
     depths = [(kind, limit) for kind, limit, _ in searcher.calls]
-    assert depths == [
-        ("dense", 50),
-        ("sparse", 30),
-        ("dense", 80),
-        ("sparse", 80),
-    ]
+    assert sorted(depths[:2]) == [("dense", 50), ("sparse", 30)]
+    assert sorted(depths[2:]) == [("dense", 80), ("sparse", 80)]
 
 
 async def test_context_is_the_parent_passage_of_each_hit() -> None:

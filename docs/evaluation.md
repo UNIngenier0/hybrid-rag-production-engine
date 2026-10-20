@@ -108,3 +108,106 @@ CPU figures on the second machine are still to be measured.
 | GPU available | `BAAI/bge-reranker-v2-m3` | 30 | 0.684 |
 | Smaller GPU or fast CPU | `BAAI/bge-reranker-base` | 20 | 0.651 |
 | No reranker | none (BM25 weight 1.5) | | 0.622 |
+
+## Answer evaluation
+
+Retrieval recall says whether the right documents reach the model; this part measures the answers
+and compares the system with two grep baselines, using the benchmark's own evaluator.
+
+### What is compared
+
+All three systems use the same model (Claude Haiku 5.5) on the same 96 questions, and the same
+judge scores them.
+
+| System | How it finds documents | Then |
+|---|---|---|
+| **Hybrid + rerank (ours)** | Dense + BM25, fused, 30 candidates reranked by `bge-reranker-v2-m3`; the best 5 chunks reach the model with their parent passages | One answer step, with citations |
+| **Iterative grep agent** | The benchmark's own agent: a loop that runs `grep`, `find`, `jq` and similar commands over the raw documents, reads files and picks documents, with a 10-minute budget per question | Writes the answer itself |
+| **Single-attempt grep** | A model writes one regular expression, `ripgrep` runs it once, the five files with the most matches are kept (the part of each that holds the matches) | The same answer step as ours |
+
+The 96 questions are 12 of each of the eight types that have gold documents, drawn with a fixed
+seed (`eval/runs/*/questions.txt`). The two types without gold documents (information that is not in
+the corpus, and high-level questions) are Phase 5, because they test abstention.
+
+The evaluator is the benchmark's `metrics_based_eval`: *correctness* is a judge's yes or no on
+whether the answer agrees with the gold answer, *completeness* is the share of gold facts the
+answer contains (each checked on its own), *document recall* is the share of gold documents the
+system names, and *invalid extra documents* counts the documents it names that are not gold. The
+*combined* score is the benchmark's headline: completeness averaged over all questions, counted as
+zero when the answer is not correct. Every system is scored against the original gold
+(`--no-correction`) so they stay comparable, and the judge is Claude Haiku 5.5, not the GPT model of
+the public leaderboard, so none of these numbers can be compared with that leaderboard.
+
+### Results
+
+| System | Correct | Completeness | Combined | Doc recall | Invalid extra docs | Combined vs ours | Cost of the answers |
+|---|---|---|---|---|---|---|---|
+| **Hybrid + rerank (ours)** | 56.2% | 61.8% | **50.6** | 72.3% | 0.95 | | $0.08 |
+| Iterative grep agent | 42.7% | 49.8% | **40.0** | 38.2% | 0.50 | -10.7 (-20.6, -0.7) | $1.94 |
+| Single-attempt grep | 5.2% | 15.8% | **4.8** | 9.0% | 1.72 | -45.8 (-55.5, -36.2) | $0.09 |
+
+By question type, the combined score (12 questions each, so read the types as directions):
+
+| System | basic | semantic | intra-doc | constrained | conflicting | misc. | project | completeness |
+|---|---|---|---|---|---|---|---|---|
+| Hybrid + rerank | 56.9 | 33.3 | 58.3 | 67.2 | 73.1 | 95.6 | 3.8 | 16.7 |
+| Iterative grep agent | 33.3 | 23.6 | 58.3 | 23.1 | 29.8 | 100.0 | 9.9 | 41.5 |
+| Single-attempt grep | 8.3 | 0.0 | 0.0 | 14.7 | 6.9 | 8.3 | 0.0 | 0.0 |
+
+- **One pass of hybrid retrieval and reranking beat the iterating agent**, by 10.7 points on the
+  combined score (the interval just excludes zero) and at about a twenty-fifth of the cost: $0.0008
+  against $0.0202 per question. It also found much more of the gold evidence (72% of the gold
+  documents against 38%).
+- **The agent wins exactly where one pass cannot reach**: `completeness` (41.5 against 16.7) and
+  `project_related` (9.9 against 3.8), the questions that need many documents put together. Both
+  are low for everyone, and they are the case for a retrieve-check-retrieve-again step.
+- **The agent is more precise**: it names fewer unrelated documents (0.50 against 0.95 per question)
+  because it only selects what it read.
+- **A single grep attempt is not a baseline worth fearing**: with no ranking beyond match counts, a
+  common word brings back the longest threads, and for 74 of the 96 questions none of the five
+  files held the answer (only 13 had any gold document among them).
+
+### Reproduce it
+
+```bash
+scripts/benchmark/setup.sh --volume       # the benchmark's evaluator, agent and raw documents (~4 GB)
+
+# Ours: needs the stored candidates and reranker scores (above) and PostgreSQL for the passages.
+python -m rag_engine.evaluation.cli answer --run rag-haiku --per-type 12 \
+    --rerank eval/cache/rerank-BAAI_bge-reranker-v2-m3.jsonl.gz
+scripts/benchmark/evaluate.sh eval/runs/rag-haiku claude-haiku-5-5
+
+# The rivals, on the same questions (every script meters its cost and stops at a budget):
+scripts/benchmark/run_agent.sh eval/runs/grep-agent-haiku claude-haiku-5-5 6 6
+STRIP_CITATIONS=1 scripts/benchmark/evaluate.sh eval/runs/grep-agent-haiku claude-haiku-5-5
+scripts/benchmark/run_grep_oneshot.sh eval/runs/grep-oneshot-haiku eval/runs/rag-haiku
+scripts/benchmark/evaluate.sh eval/runs/grep-oneshot-haiku claude-haiku-5-5
+
+python -m rag_engine.evaluation.cli compare --arm "Hybrid + rerank (ours)=eval/runs/rag-haiku" \
+    --arm "Iterative grep agent=eval/runs/grep-agent-haiku" \
+    --arm "Single-attempt grep=eval/runs/grep-oneshot-haiku"
+```
+
+The benchmark's agent and evaluator call the Anthropic API on their own, with no cost report and no
+cap. The scripts send their calls through a small metering proxy (`scripts/benchmark/meter_proxy.py`)
+that holds the real key, adds up what every call costs and refuses new calls once the budget is spent.
+The whole comparison (answers and judging, for the three systems) cost about $2.5, plus
+roughly $0.20 of earlier trial runs.
+
+### Limits to keep in mind
+
+- **One small model.** Everything runs on Haiku 5.5, which is cheap but small. The benchmark's agent
+  was designed around stronger models and would likely do better with one; this comparison says
+  how the systems compare at equal model strength, not how good an agent can be.
+- **One sample per question, 96 questions.** Newer models refuse a temperature setting, so a rerun
+  will not give identical answers, and with 12 questions per type the per-type figures are only
+  directional. The interval on the headline difference with the agent just excludes zero.
+- **The judge is Claude Haiku 5.5**, a small model grading answers; it shares its blind spots with
+  the system under test. Rescoring with a stronger judge (`evaluate.sh ... claude-sonnet-5-5`) costs
+  a few dollars.
+- **Our retrieval replays stored candidates**: the candidates collected from the index and the
+  reranker scores computed on a GPU, with the equal-weight fusion the scores were computed on.
+- **The single-attempt baseline's design matters.** Its ranking is by match count, the only ranking
+  grep has. A smarter way to order files would score higher.
+- **The cost of the first 28 single-attempt answers is estimated**, because a crash lost their usage
+  report; the rest of the figures are metered.

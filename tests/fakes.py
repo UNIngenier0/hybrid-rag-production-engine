@@ -17,7 +17,11 @@ from rag_engine.core.models import (
     ChunkHit,
     ChunkPoint,
     DocumentProgress,
+    LLMReply,
+    LLMUsage,
     PassageSpan,
+    RetrievalMode,
+    RetrievalResult,
     SearchFilters,
     SequencedDocument,
     SourceDocument,
@@ -273,3 +277,46 @@ class FakeReranker:
             [next((v for k, v in self.scores.items() if k in p), 0.0) for p in passages],
             dtype=np.float32,
         )
+
+
+class FakeLLM:
+    """Replies with scripted texts, one per call (the last one repeats), and records the prompts."""
+
+    def __init__(
+        self, *replies: str, model: str = "claude-haiku-5-5", usage: LLMUsage | None = None
+    ) -> None:
+        self.model = model
+        self.replies = list(replies) or ["An answer."]
+        self.usage = usage or LLMUsage(input_tokens=1000, output_tokens=100)
+        self.prompts: list[tuple[str, str]] = []
+        self.temperatures: list[float | None] = []
+
+    async def complete(
+        self, system: str, user: str, *, max_tokens: int = 1024, temperature: float | None = None
+    ) -> LLMReply:
+        self.prompts.append((system, user))
+        self.temperatures.append(temperature)
+        text = self.replies[min(len(self.prompts), len(self.replies)) - 1]
+        return LLMReply(text=text, usage=self.usage, model=self.model)
+
+
+class FakeRetriever:
+    """Returns the same hits for any query, as a retriever would, and records the calls."""
+
+    def __init__(self, hits: list[ChunkHit]) -> None:
+        self.hits = hits
+        self.calls: list[dict[str, object]] = []
+
+    async def retrieve(
+        self,
+        query: str,
+        *,
+        mode: RetrievalMode = "hybrid",
+        filters: SearchFilters | None = None,
+        limit: int | None = None,
+        include_context: bool = False,
+    ) -> RetrievalResult:
+        self.calls.append(
+            {"query": query, "mode": mode, "limit": limit, "include_context": include_context}
+        )
+        return RetrievalResult(query=query, mode=mode, hits=self.hits[: limit or len(self.hits)])

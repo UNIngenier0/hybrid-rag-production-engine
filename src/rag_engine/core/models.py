@@ -79,6 +79,21 @@ class DocumentProgress:
 
 
 @dataclass(frozen=True, slots=True)
+class LLMUsage:
+    """Tokens one model call consumed."""
+
+    input_tokens: int
+    output_tokens: int
+
+
+@dataclass(frozen=True, slots=True)
+class LLMReply:
+    text: str
+    usage: LLMUsage
+    model: str
+
+
+@dataclass(frozen=True, slots=True)
 class SearchFilters:
     """Restrict a search to some sources or documents. An empty field does not restrict."""
 

@@ -1,0 +1,31 @@
+{
+  "questions": 96,
+  "arms": {
+    "Hybrid + rerank (ours)": {
+      "correct": 0.5625,
+      "completeness": 0.618090625,
+      "combined": 0.506234375,
+      "recall": 0.7226677083333333,
+      "invalid_extra": 0.9479166666666666,
+      "cost_usd": 0.07931379999999998
+    },
+    "Iterative grep agent": {
+      "correct": 0.4270833333333333,
+      "completeness": 0.4980145833333333,
+      "combined": 0.3995989583333333,
+      "recall": 0.3822052083333333,
+      "invalid_extra": 0.5,
+      "combined_vs_baseline": -0.10663541666666666,
+      "cost_usd": 1.939232
+    },
+    "Single-attempt grep": {
+      "correct": 0.052083333333333336,
+      "completeness": 0.15769479166666667,
+      "combined": 0.0478875,
+      "recall": 0.09001770833333333,
+      "invalid_extra": 1.71875,
+      "combined_vs_baseline": -0.458346875,
+      "cost_usd": 0.091145
+    }
+  }
+}

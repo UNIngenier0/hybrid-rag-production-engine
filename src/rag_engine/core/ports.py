@@ -10,6 +10,7 @@ from rag_engine.core.models import (
     ChunkHit,
     ChunkPoint,
     DocumentProgress,
+    LLMReply,
     PassageSpan,
     RetrievalMode,
     RetrievalResult,
@@ -151,6 +152,16 @@ class PassageStore(Protocol):
     async def passages(self, spans: Sequence[PassageSpan]) -> dict[PassageSpan, str]:
         """Text of each span. A span whose document is not stored is left out."""
         ...
+
+
+class LLMClient(Protocol):
+    """A language model that answers one prompt. Vendor SDKs stay behind adapters."""
+
+    model: str
+
+    async def complete(
+        self, system: str, user: str, *, max_tokens: int = 1024, temperature: float | None = None
+    ) -> LLMReply: ...
 
 
 class Retriever(Protocol):

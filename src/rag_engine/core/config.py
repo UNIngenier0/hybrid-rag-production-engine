@@ -64,6 +64,15 @@ class Settings(BaseSettings):
     rrf_dense_weight: float = Field(default=1.0, gt=0)
     rrf_sparse_weight: float = Field(default=1.5, gt=0)
 
+    # Answer generation. The key is a secret and stays in the git-ignored .env. Haiku is the default
+    # because it is cheap and good enough to compare retrieval; a stronger model is a setting away.
+    anthropic_api_key: SecretStr | None = None
+    # Only to reach the API through a metering proxy, as the benchmark scripts do.
+    anthropic_base_url: str | None = None
+    llm_model: str = "claude-haiku-5-5"
+    # Newer models may reason before they write, and that reasoning counts against the limit.
+    llm_max_tokens: int = Field(default=4000, gt=0)
+
     # Bulk ingestion.
     dataset_path: Path = Path("data/raw/documents/test.parquet")
     vectors_dir: Path = Path("data/vectors")

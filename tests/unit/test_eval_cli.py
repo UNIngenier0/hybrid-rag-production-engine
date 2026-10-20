@@ -73,4 +73,6 @@ def test_every_command_is_listed_in_the_help(capsys: pytest.CaptureFixture[str])
         cli.main(["--help"])
 
     out = capsys.readouterr().out
-    assert all(command in out for command in ("collect", "rerank", "report"))
+    assert all(
+        command in out for command in ("collect", "rerank", "export-pool", "answer", "report")
+    )
