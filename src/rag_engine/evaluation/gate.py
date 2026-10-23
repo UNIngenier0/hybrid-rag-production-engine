@@ -21,9 +21,10 @@ from typing import Any
 
 from rag_engine.core.config import Settings
 from rag_engine.core.models import ChunkHit
+from rag_engine.evaluation.abstention import AbstentionReport, Evidence, build_report, top_score
 from rag_engine.evaluation.audit import audit_runs
 from rag_engine.evaluation.candidates import QuestionCandidates
-from rag_engine.evaluation.compare import compare
+from rag_engine.evaluation.compare import compare, load_outcomes
 from rag_engine.evaluation.metrics import (
     QuestionScore,
     distinct_documents,
@@ -214,6 +215,9 @@ def measure(cases: Sequence[GateCase], pipeline: Pipeline) -> dict[str, Any]:
     results: dict[str, dict[str, list[QuestionScore]]] = {
         system: {str(budget): [] for budget in BUDGETS} for system in SYSTEMS
     }
+    cases = [
+        case for case in cases if case.question.gold_doc_ids
+    ]  # the others have nothing to find
     for case in cases:
         for system, ranked in _rankings(case, pipeline).items():
             for budget in BUDGETS:
@@ -374,6 +378,14 @@ COMMITTED_ARMS = (
 COMMITTED_JUDGE = "claude-haiku-5-5"
 COMMITTED_REPORT = Path("eval/reports/answer-comparison.json")
 
+# The same three systems on the questions the corpus cannot answer and the broad ones.
+UNANSWERABLE_ARMS = (
+    ("Hybrid + rerank (ours)", Path("eval/runs/rag-haiku-unanswerable")),
+    ("Iterative grep agent", Path("eval/runs/grep-agent-unanswerable")),
+    ("Single-attempt grep", Path("eval/runs/grep-oneshot-unanswerable")),
+)
+UNANSWERABLE_REPORT = Path("eval/reports/answer-comparison-unanswerable.json")
+
 
 def check_answer_report(
     arms: Sequence[tuple[str, Path]] = COMMITTED_ARMS,
@@ -383,6 +395,8 @@ def check_answer_report(
     """Problems with the committed answer comparison: unfair setup or numbers that no longer
     match the run folders. Answers cannot be regenerated in CI (they cost money), so this checks
     that what is published is what the stored results say, and that the systems were comparable."""
+    if not report.exists():
+        return []  # not published yet: there are no numbers to keep honest
     audit = audit_runs(arms, judge)
     problems = [f"{check.name}: {check.detail}" for check in audit.failures]
     comparison = compare(load_arms(arms, judge), arms[0][0], audit)
@@ -391,3 +405,77 @@ def check_answer_report(
             f"{report} does not match the run folders: regenerate it with the `compare` command"
         )
     return problems
+
+
+# The runs the abstention report reads: our answers to the questions the corpus answers, and to the
+# ones it does not (information that is not there, and broad questions).
+COMMITTED_ABSTENTION_RUNS = (
+    Path("eval/runs/rag-haiku-all"),
+    Path("eval/runs/rag-haiku-unanswerable"),
+)
+COMMITTED_ABSTENTION_REPORT = Path("eval/reports/abstention-scores.json")
+
+
+def abstention_report(
+    fixture: Path,
+    runs: Sequence[Path] = COMMITTED_ABSTENTION_RUNS,
+    judge: str = COMMITTED_JUDGE,
+) -> AbstentionReport:
+    """How the best reranker score and the answer's own statements relate to correctness, for
+    every question of the fixture that has a judged answer."""
+    _, cases = load_fixture(fixture)
+    pipeline = shipped_pipeline()
+    judged: dict[str, bool] = {}
+    statuses: dict[str, str] = {}
+    for run in runs:
+        judged.update(
+            {qid: outcome.correct for qid, outcome in load_outcomes(_results(run, judge)).items()}
+        )
+        statuses.update(_statuses(run))
+    evidence = [
+        Evidence(
+            case.question.question_id,
+            case.question.question_type,
+            top_score(
+                case.candidates, case.scores, pipeline.rerank_pool_fusion(), pipeline.rerank_pool
+            ),
+            judged.get(case.question.question_id),
+            statuses.get(case.question.question_id),
+        )
+        for case in cases
+    ]
+    return build_report(evidence)
+
+
+def _results(run: Path, judge: str) -> Path:
+    return run / f"results-{judge}.json"
+
+
+def _statuses(run: Path) -> dict[str, str]:
+    from rag_engine.generation.coverage import coverage
+
+    found: dict[str, str] = {}
+    for line in (run / "trace.jsonl").read_text(encoding="utf-8").splitlines():
+        row = json.loads(line)
+        if "raw_answer" in row:
+            found[row["question_id"]] = coverage(row["raw_answer"]).status
+    return found
+
+
+def check_abstention_report(
+    fixture: Path,
+    report: Path = COMMITTED_ABSTENTION_REPORT,
+    runs: Sequence[Path] = COMMITTED_ABSTENTION_RUNS,
+) -> list[str]:
+    """Problems with the committed abstention numbers: they must be what the fixture and the
+    committed runs give today."""
+    from dataclasses import asdict
+
+    if not report.exists():
+        return []  # not published yet: there are no numbers to keep honest
+    if not all(_results(run, COMMITTED_JUDGE).exists() for run in runs):
+        return [f"the runs behind {report} are missing: {', '.join(str(run) for run in runs)}"]
+    current = json.loads(json.dumps(asdict(abstention_report(fixture, runs))))
+    if json.loads(report.read_text(encoding="utf-8")) != current:
+        return [f"{report} does not match the fixture and the runs: regenerate it"]
+    return []

@@ -1,0 +1,333 @@
+{
+  "aggregate_stats": {
+    "total_questions": 30,
+    "completed_questions": 30,
+    "skipped_rows": 0,
+    "num_corrected_questions": 0,
+    "average_correctness_pct": 66.67,
+    "average_completeness_pct": 73.67,
+    "combined_correctness_completeness_score": 66.67,
+    "average_recall_pct": 0.0,
+    "average_invalid_extra_docs": 0.0
+  },
+  "question_type_stats": {
+    "high_level": {
+      "count": 10,
+      "average_correctness_pct": 0.0,
+      "average_completeness_pct": 21.0,
+      "combined_correctness_completeness_score": 0.0,
+      "average_recall_pct": 0.0,
+      "average_invalid_extra_docs": 0.0
+    },
+    "info_not_found": {
+      "count": 20,
+      "average_correctness_pct": 100.0,
+      "average_completeness_pct": 100.0,
+      "combined_correctness_completeness_score": 100.0,
+      "average_recall_pct": 0.0,
+      "average_invalid_extra_docs": 0.0
+    }
+  },
+  "questions": [
+    {
+      "question_id": "qst_0471",
+      "corrected": false,
+      "question_type": "high_level",
+      "answer_correct": false,
+      "correctness_reasoning": "The candidate states it could not find the mission statement and provides no mission content, missing the core information in the gold answer.",
+      "completeness_pct": 0.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0472",
+      "corrected": false,
+      "question_type": "high_level",
+      "answer_correct": false,
+      "correctness_reasoning": "The candidate claims no thesis exists in the documents and fails to provide the gold answer's core claim that competitive advantage shifts from model ownership to serving (latency, cost, reliability, etc.).",
+      "completeness_pct": 0.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0473",
+      "corrected": false,
+      "question_type": "high_level",
+      "answer_correct": false,
+      "correctness_reasoning": "The candidate discusses unrelated security features from backup CronJobs, RBAC automation, and reconcilers, and never mentions Redwood Private's private control plane, customer-managed VPC/on-prem deployment, networking, KMS/HSM integrations, or audit logs.",
+      "completeness_pct": 0.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0474",
+      "corrected": false,
+      "question_type": "high_level",
+      "answer_correct": false,
+      "correctness_reasoning": "The candidate covers KV cache management and quantization, but it explicitly labels batching as an incident component rather than an optimization, conflicting with the gold's continuous batching, and it omits architecture/sequence-length/hardware-aware kernel selection.",
+      "completeness_pct": 60.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0475",
+      "corrected": false,
+      "question_type": "high_level",
+      "answer_correct": false,
+      "correctness_reasoning": "The candidate covers region and tier-related routing but omits latency and cost, two of the four gold dimensions, and adds many dimensions not in the gold answer.",
+      "completeness_pct": 50.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0476",
+      "corrected": false,
+      "question_type": "high_level",
+      "answer_correct": false,
+      "correctness_reasoning": "The candidate claims the documents don't state a differentiation, whereas the gold answer identifies built-in reliability and graceful degradation via automatic fallback as Redwood's differentiator, so the candidate conflicts with the core claim.",
+      "completeness_pct": 66.67,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0477",
+      "corrected": false,
+      "question_type": "high_level",
+      "answer_correct": false,
+      "correctness_reasoning": "The candidate claims no list of four revenue streams exists in the documents and fails to identify the usage-based API, reserved capacity, enterprise licensing/support, and add-on streams given in the gold answer.",
+      "completeness_pct": 0.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0478",
+      "corrected": false,
+      "question_type": "high_level",
+      "answer_correct": false,
+      "correctness_reasoning": "The candidate names observability retention but omits compliance packages and premium SLAs, and adds tracing, dashboards, and other items that conflict with the gold categories.",
+      "completeness_pct": 33.33,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0479",
+      "corrected": false,
+      "question_type": "high_level",
+      "answer_correct": false,
+      "correctness_reasoning": "The gold answer states the trigger is usage thresholds or needs for stronger security controls and SLA-backed capacity, while the candidate claims the documents don't state any trigger and only offers compliance qualification criteria, missing the core answer.",
+      "completeness_pct": 0.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0480",
+      "corrected": false,
+      "question_type": "high_level",
+      "answer_correct": false,
+      "correctness_reasoning": "The candidate says the passages lack an explicit departmental structure and offers different role families and teams, so it does not provide the high-level departments listed in the gold answer (Engineering, Product, Developer experience, Research/Applied ML, Go-to-market, Security and compliance, Customer support and success).",
+      "completeness_pct": 0.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0481",
+      "corrected": false,
+      "question_type": "info_not_found",
+      "answer_correct": true,
+      "correctness_reasoning": "The gold answer requires acknowledging that the query is not fully answerable from the documents, and the candidate clearly states the account names and per-route-group budget values are not provided, while offering related context without conflicting information.",
+      "completeness_pct": 100.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0482",
+      "corrected": false,
+      "question_type": "info_not_found",
+      "answer_correct": true,
+      "correctness_reasoning": "The candidate clearly states that the queue-depth threshold and interleaving-ratio cutoffs could not be found in the documents, which matches the gold answer's requirement to caveat that the query is not fully answerable.",
+      "completeness_pct": 100.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0483",
+      "corrected": false,
+      "question_type": "info_not_found",
+      "answer_correct": true,
+      "correctness_reasoning": "The candidate clearly states the documents do not answer the query, explains which parts are missing, and offers related but non-matching material, which satisfies the gold answer's requirement to caveat the answer as unanswerable from the documents.",
+      "completeness_pct": 100.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0484",
+      "corrected": false,
+      "question_type": "info_not_found",
+      "answer_correct": true,
+      "correctness_reasoning": "The gold answer requires acknowledging that the query is not fully answerable from the documents, and the candidate clearly states the information could not be found and explains what related material exists without conflicting with the gold answer.",
+      "completeness_pct": 100.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0485",
+      "corrected": false,
+      "question_type": "info_not_found",
+      "answer_correct": true,
+      "correctness_reasoning": "The gold answer requires stating that the query is not fully answerable from the documents with caveats; the candidate explicitly states the information could not be found, explains why, and notes what is missing, which aligns.",
+      "completeness_pct": 100.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0486",
+      "corrected": false,
+      "question_type": "info_not_found",
+      "answer_correct": true,
+      "correctness_reasoning": "The candidate clearly states the documents do not answer how per-request CO2e is computed or exposed in the Usage API, which matches the gold answer's requirement to caveat that the query is not fully answerable from the documents.",
+      "completeness_pct": 100.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0487",
+      "corrected": false,
+      "question_type": "info_not_found",
+      "answer_correct": true,
+      "correctness_reasoning": "The gold answer requires acknowledging that the query is not fully answerable from the documents, and the candidate clearly states the answer could not be found while explaining what related material is and is not present.",
+      "completeness_pct": 100.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0488",
+      "corrected": false,
+      "question_type": "info_not_found",
+      "answer_correct": true,
+      "correctness_reasoning": "The candidate clearly states the query is not answerable from the documents and explains why, matching the gold answer's requirement to acknowledge the information is not found.",
+      "completeness_pct": 100.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0489",
+      "corrected": false,
+      "question_type": "info_not_found",
+      "answer_correct": true,
+      "correctness_reasoning": "The candidate clearly states that the Slack channel for the component could not be found in the documents and caveats that the information is not fully available, matching the gold answer's requirement.",
+      "completeness_pct": 100.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0490",
+      "corrected": false,
+      "question_type": "info_not_found",
+      "answer_correct": true,
+      "correctness_reasoning": "The candidate clearly states that the BGP community values, MED/local-preference values, and routing configuration are not in the provided documents, which matches the gold answer's requirement to caveat that the query is not fully answerable.",
+      "completeness_pct": 100.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0491",
+      "corrected": false,
+      "question_type": "info_not_found",
+      "answer_correct": true,
+      "correctness_reasoning": "The gold answer requires the response to state that the query is not answerable from the documents, and the candidate explicitly says it could not find this information and notes the missing specification, which matches.",
+      "completeness_pct": 100.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0492",
+      "corrected": false,
+      "question_type": "info_not_found",
+      "answer_correct": true,
+      "correctness_reasoning": "The gold answer requires the response to state that the query is not fully answerable from the documents, and the candidate clearly states it could not find the default surcharge or GL account, while adding relevant related context without contradicting the gold answer.",
+      "completeness_pct": 100.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0493",
+      "corrected": false,
+      "question_type": "info_not_found",
+      "answer_correct": true,
+      "correctness_reasoning": "The gold answer requires acknowledging that the query is not fully answerable from the documents, and the candidate explicitly states it cannot find the Azure Marketplace dimensions or rounding/aggregation policy, providing relevant related context with clear caveats.",
+      "completeness_pct": 100.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0494",
+      "corrected": false,
+      "question_type": "info_not_found",
+      "answer_correct": true,
+      "correctness_reasoning": "The gold answer requires stating that the query is not fully answerable from the documents, and the candidate clearly states it could not find the TEU multipliers or constant locations, while noting related but non-matching material.",
+      "completeness_pct": 100.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0495",
+      "corrected": false,
+      "question_type": "info_not_found",
+      "answer_correct": true,
+      "correctness_reasoning": "The candidate clearly states the query cannot be answered from the documents and explains that none of the passages cover the Remote-first Pilot, standing desk converters, or Canada shipping, which matches the gold answer's requirement to acknowledge the query is not fully answerable.",
+      "completeness_pct": 100.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0496",
+      "corrected": false,
+      "question_type": "info_not_found",
+      "answer_correct": true,
+      "correctness_reasoning": "The candidate clearly states the query is not answerable from the documents and explains why, matching the gold answer's requirement to caveat that the information is not found.",
+      "completeness_pct": 100.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0497",
+      "corrected": false,
+      "question_type": "info_not_found",
+      "answer_correct": true,
+      "correctness_reasoning": "The candidate clearly states the query cannot be answered from the documents and explains why, matching the gold answer's requirement to caveat that the information is not available.",
+      "completeness_pct": 100.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0498",
+      "corrected": false,
+      "question_type": "info_not_found",
+      "answer_correct": true,
+      "correctness_reasoning": "The gold answer requires stating that the query is not answerable from the documents, and the candidate clearly states the metering coefficients and methodology could not be found, with no conflicting claims.",
+      "completeness_pct": 100.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0499",
+      "corrected": false,
+      "question_type": "info_not_found",
+      "answer_correct": true,
+      "correctness_reasoning": "The gold answer requires stating that the query is not fully answerable from the documents, and the candidate clearly states the partition count, retention time, and approval record are not found in the documents, satisfying this requirement.",
+      "completeness_pct": 100.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    {
+      "question_id": "qst_0500",
+      "corrected": false,
+      "question_type": "info_not_found",
+      "answer_correct": true,
+      "correctness_reasoning": "The gold answer requires stating that the query is not fully answerable from the documents, and the candidate clearly states the documents lack CAB quorum, tie-break, and final authority information while noting related material.",
+      "completeness_pct": 100.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    }
+  ]
+}

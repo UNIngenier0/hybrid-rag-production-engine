@@ -1,0 +1,233 @@
+{
+  "by_type": [
+    {
+      "question_type": "basic",
+      "n": 175,
+      "low": 0.225098,
+      "q1": 0.9279785,
+      "median": 0.96582,
+      "q3": 0.98877,
+      "high": 0.999023
+    },
+    {
+      "question_type": "completeness",
+      "n": 20,
+      "low": 0.415283,
+      "q1": 0.93237275,
+      "median": 0.9545895,
+      "q3": 0.97351075,
+      "high": 0.998535
+    },
+    {
+      "question_type": "conflicting_info",
+      "n": 20,
+      "low": 0.950195,
+      "q1": 0.97949225,
+      "median": 0.99292,
+      "q3": 0.99719225,
+      "high": 0.999512
+    },
+    {
+      "question_type": "constrained",
+      "n": 30,
+      "low": 0.77832,
+      "q1": 0.9643557500000001,
+      "median": 0.9831544999999999,
+      "q3": 0.994507,
+      "high": 0.999512
+    },
+    {
+      "question_type": "high_level",
+      "n": 10,
+      "low": 0.030624,
+      "q1": 0.892212,
+      "median": 0.961426,
+      "q3": 0.986084,
+      "high": 0.997559
+    },
+    {
+      "question_type": "info_not_found",
+      "n": 20,
+      "low": 0.259521,
+      "q1": 0.5185545,
+      "median": 0.6901855,
+      "q3": 0.8319092499999999,
+      "high": 0.98877
+    },
+    {
+      "question_type": "intra_document_reasoning",
+      "n": 40,
+      "low": 0.810547,
+      "q1": 0.960938,
+      "median": 0.9733885,
+      "q3": 0.99157725,
+      "high": 0.999023
+    },
+    {
+      "question_type": "miscellaneous",
+      "n": 20,
+      "low": 0.053009,
+      "q1": 0.8642575,
+      "median": 0.9291995,
+      "q3": 0.98754925,
+      "high": 0.996094
+    },
+    {
+      "question_type": "project_related",
+      "n": 40,
+      "low": 0.733887,
+      "q1": 0.89685075,
+      "median": 0.964844,
+      "q3": 0.98327625,
+      "high": 0.999512
+    },
+    {
+      "question_type": "semantic",
+      "n": 125,
+      "low": 0.189209,
+      "q1": 0.589844,
+      "median": 0.791504,
+      "q3": 0.924805,
+      "high": 0.99707
+    }
+  ],
+  "unanswerable_type": "info_not_found",
+  "unanswerable_total": 20,
+  "auc_unanswerable": 0.8152659574468085,
+  "points": [
+    {
+      "threshold": 0.053009,
+      "false_abstain": 0.0,
+      "caught": 0.0,
+      "refused_answerable": 0,
+      "caught_unanswerable": 0
+    },
+    {
+      "threshold": 0.225098,
+      "false_abstain": 0.00851063829787234,
+      "caught": 0.0,
+      "refused_answerable": 4,
+      "caught_unanswerable": 0
+    },
+    {
+      "threshold": 0.317627,
+      "false_abstain": 0.019148936170212766,
+      "caught": 0.1,
+      "refused_answerable": 9,
+      "caught_unanswerable": 2
+    },
+    {
+      "threshold": 0.494873,
+      "false_abstain": 0.04893617021276596,
+      "caught": 0.25,
+      "refused_answerable": 23,
+      "caught_unanswerable": 5
+    },
+    {
+      "threshold": 0.630371,
+      "false_abstain": 0.1,
+      "caught": 0.45,
+      "refused_answerable": 47,
+      "caught_unanswerable": 9
+    },
+    {
+      "threshold": 0.822266,
+      "false_abstain": 0.2,
+      "caught": 0.75,
+      "refused_answerable": 94,
+      "caught_unanswerable": 15
+    }
+  ],
+  "high_level_refused": {
+    "0.053009": 1,
+    "0.225098": 1,
+    "0.317627": 1,
+    "0.494873": 1,
+    "0.630371": 2,
+    "0.822266": 2
+  },
+  "high_level_total": 10,
+  "auc_correct": 0.6763812330586331,
+  "protection": [
+    {
+      "threshold": 0.053009,
+      "wrong_avoided": 0,
+      "wrong_total": 219,
+      "right_lost": 0,
+      "right_total": 251
+    },
+    {
+      "threshold": 0.225098,
+      "wrong_avoided": 3,
+      "wrong_total": 219,
+      "right_lost": 1,
+      "right_total": 251
+    },
+    {
+      "threshold": 0.317627,
+      "wrong_avoided": 8,
+      "wrong_total": 219,
+      "right_lost": 1,
+      "right_total": 251
+    },
+    {
+      "threshold": 0.494873,
+      "wrong_avoided": 21,
+      "wrong_total": 219,
+      "right_lost": 2,
+      "right_total": 251
+    },
+    {
+      "threshold": 0.630371,
+      "wrong_avoided": 36,
+      "wrong_total": 219,
+      "right_lost": 11,
+      "right_total": 251
+    },
+    {
+      "threshold": 0.822266,
+      "wrong_avoided": 62,
+      "wrong_total": 219,
+      "right_lost": 32,
+      "right_total": 251
+    }
+  ],
+  "statuses": [
+    {
+      "group": "answerable",
+      "status": "answered",
+      "n": 261,
+      "correct": 219
+    },
+    {
+      "group": "answerable",
+      "status": "partial",
+      "n": 207,
+      "correct": 32
+    },
+    {
+      "group": "answerable",
+      "status": "not_found",
+      "n": 2,
+      "correct": 0
+    },
+    {
+      "group": "info_not_found",
+      "status": "partial",
+      "n": 20,
+      "correct": 20
+    },
+    {
+      "group": "high_level",
+      "status": "answered",
+      "n": 6,
+      "correct": 5
+    },
+    {
+      "group": "high_level",
+      "status": "partial",
+      "n": 4,
+      "correct": 1
+    }
+  ]
+}

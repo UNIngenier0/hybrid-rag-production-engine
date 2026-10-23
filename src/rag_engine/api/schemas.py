@@ -136,12 +136,22 @@ class ClaimResult(BaseModel):
 
 
 class VerificationResult(BaseModel):
-    method: Literal["judge", "values"]
+    method: Literal["judge", "values", "none"]
     model: str | None
     statements: int
     verified: int
     all_verified: bool
     error: str | None
+
+
+class AbstentionResult(BaseModel):
+    """Why the service declined to write an answer."""
+
+    # "no_passages": nothing was retrieved. "weak_evidence": the best reranked passage scored
+    # below the configured threshold.
+    reason: str
+    top_score: float | None
+    threshold: float | None
 
 
 class Usage(BaseModel):
@@ -156,6 +166,13 @@ class QueryResponse(BaseModel):
     query: str
     mode: RetrievalMode
     answer: str
+    # "answered": the answer says nothing is missing. "partial": it states part and says the
+    # documents lack the rest (`gaps` quotes those sentences). "not_found": it says only that it
+    # found nothing. "abstained": no answer was written, the evidence was too weak.
+    status: Literal["answered", "partial", "not_found", "abstained"]
+    gaps: list[str]
+    abstained: bool
+    abstention: AbstentionResult | None
     # The answer exactly as the model wrote it, with its [n] markers.
     answer_with_markers: str
     citations: list[CitedPassage]
@@ -194,6 +211,18 @@ class QueryResponse(BaseModel):
             query=result.question,
             mode=answer.mode,
             answer=answer.text,
+            status=result.coverage.status,
+            gaps=list(result.coverage.gaps),
+            abstained=answer.abstention is not None,
+            abstention=(
+                AbstentionResult(
+                    reason=answer.abstention.reason,
+                    top_score=answer.abstention.top_score,
+                    threshold=answer.abstention.threshold,
+                )
+                if answer.abstention is not None
+                else None
+            ),
             answer_with_markers=answer.raw_text,
             citations=citations,
             claims=[

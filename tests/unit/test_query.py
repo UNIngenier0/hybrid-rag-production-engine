@@ -269,3 +269,56 @@ async def test_failures_map_to_a_status_without_leaking_their_cause(
 
     assert response.status_code == expected
     assert "model down" not in response.text and "models" not in response.json()["detail"]
+
+
+async def test_the_endpoint_says_when_it_declined_and_why(settings: Settings) -> None:
+    from rag_engine.generation.abstain import AbstentionPolicy
+
+    llm = FakeLLM("never used")
+    weak = FakeRetriever([make_hit("a", doc_id="d1", score=-3.0)])
+    generator = AnswerGenerator(weak, llm, mode="hybrid+rerank", abstention=AbstentionPolicy(0.0))
+    declining = QueryService(generator, CitationVerifier(llm))
+
+    async with client(settings, declining) as http:
+        response = await http.post("/v1/query", json={"query": "What is the secret?"})
+
+    body = response.json()
+    assert response.status_code == 200, body
+    assert body["abstained"] is True
+    assert (body["status"], body["gaps"]) == ("abstained", [])
+    assert body["abstention"] == {"reason": "weak_evidence", "top_score": -3.0, "threshold": 0.0}
+    assert body["claims"] == [] and body["citations"] == [] and body["document_ids"] == []
+    assert body["verification"]["method"] == "none"
+    assert body["usage"]["cost_usd"] == 0.0
+    assert llm.prompts == []
+
+
+async def test_an_answered_question_is_not_marked_as_declined(settings: Settings) -> None:
+    async with client(settings, service(FakeLLM(ANSWER, VERDICTS))) as http:
+        response = await http.post("/v1/query", json={"query": "What is the upload limit?"})
+
+    body = response.json()
+    assert (body["abstained"], body["abstention"]) == (False, None)
+    assert (body["status"], body["gaps"]) == ("answered", [])
+
+
+async def test_the_endpoint_reports_what_the_answer_says_the_documents_lack(
+    settings: Settings,
+) -> None:
+    said = "The upload limit is 10 MiB per file [1]. The passages do not give the retry policy."
+    verdict = json.dumps(
+        {
+            "verdicts": [
+                {"claim": 1, "support": "yes", "quote": "The upload limit is 10 MiB per file."}
+            ]
+        }
+    )
+
+    async with client(settings, service(FakeLLM(said, verdict))) as http:
+        response = await http.post("/v1/query", json={"query": "What is the upload limit?"})
+
+    body = response.json()
+    assert response.status_code == 200, body
+    assert body["status"] == "partial"
+    assert body["gaps"] == ["The passages do not give the retry policy."]
+    assert body["abstained"] is False

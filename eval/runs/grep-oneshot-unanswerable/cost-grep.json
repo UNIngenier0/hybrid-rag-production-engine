@@ -1,0 +1,1 @@
+{"budget_usd": 0.6, "spent_usd": 0.030656, "calls": 63, "refused_after_budget": 0, "by_model": {"claude-haiku-5-5": {"calls": 63, "input_tokens": 211104, "output_tokens": 19090, "usd": 0.030655400000000003}}, "sessions": 2}

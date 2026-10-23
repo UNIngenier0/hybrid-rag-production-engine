@@ -1,0 +1,7 @@
+{"question_id": "qst_0494", "pattern": "TEU|trace-equivalent|trace equivalent unit|kernel-level|payload capture|full-span|cost-aware profiling", "sources": ["github", "confluence"], "files_found": 594, "timed_out": false}
+{"question_id": "qst_0496", "pattern": "incident bot v2|incident-bot|incidentbot|teams|adaptive card|incoming webhook|msteams|idempoten", "sources": ["confluence", "github", "jira", "linear", "slack", "google_drive"], "files_found": 78927, "timed_out": false}
+{"question_id": "qst_0497", "pattern": "quorum|tie vote|tie-break|tiebreak|security risk committee|risk committee|control exception|risk rating", "sources": ["confluence", "google_drive", "gmail", "slack"], "files_found": 3622, "timed_out": false}
+{"question_id": "qst_0495", "pattern": "remote-first pilot|standing desk|desk converter|loaner|SKU|vendor|ship.*canada|canada.*ship", "sources": [], "files_found": 77317, "timed_out": false}
+{"question_id": "qst_0500", "pattern": "change advisory board|\\bCAB\\b|CAB quorum|quorum|tie-break|tiebreak|tie break", "sources": ["confluence", "google_drive", "github", "slack"], "files_found": 3018, "timed_out": false}
+{"question_id": "qst_0499", "pattern": "profiling\\.signals|profiling_signals", "sources": ["confluence", "github", "jira", "linear", "slack", "google_drive", "gmail"], "files_found": 2, "timed_out": false}
+{"question_id": "qst_0498", "pattern": "redwood|metering|gpu-second|per-token factor|\\$/1k|slo tier", "sources": [], "files_found": 399249, "timed_out": false}

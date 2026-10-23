@@ -1,6 +1,6 @@
 {
   "fixture": {
-    "sha256": "058cc8891894e35c0c6b1cba87789f5b45e0646852e11948ee3a50b50110ee1a",
+    "sha256": "404dd395ad4521da4466d9f7a0bf071089e5f306a70ece106330a253182a7a05",
     "questions": 470,
     "reranker": "BAAI/bge-reranker-v2-m3"
   },

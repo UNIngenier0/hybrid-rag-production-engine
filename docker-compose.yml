@@ -24,6 +24,8 @@ services:
       VERIFICATION_MODEL: ${VERIFICATION_MODEL:-}
       VERIFY_CITATIONS: ${VERIFY_CITATIONS:-true}
       QUERY_CHUNKS: ${QUERY_CHUNKS:-5}
+      # Decline, without calling the model, when the best reranker score is below this.
+      ABSTAIN_THRESHOLD: ${ABSTAIN_THRESHOLD:-}
     volumes:
       - hf_cache:/cache/huggingface
     depends_on:

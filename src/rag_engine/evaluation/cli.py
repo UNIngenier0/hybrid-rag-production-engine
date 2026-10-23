@@ -16,6 +16,7 @@ import argparse
 import asyncio
 import json
 import sys
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -62,6 +63,7 @@ def _parser() -> argparse.ArgumentParser:
     collect.add_argument("--depth", type=int, default=100, help="chunks kept per retriever")
     collect.add_argument("--concurrency", type=int, default=2)
     collect.add_argument("--limit", type=int, help="only the first N questions with gold documents")
+    _add_types(collect)
     collect.set_defaults(handler=_collect)
 
     rerank = commands.add_parser("rerank", help="score the fused candidates with a cross-encoder")
@@ -73,6 +75,7 @@ def _parser() -> argparse.ArgumentParser:
     rerank.add_argument("--device", default="auto")
     rerank.add_argument("--batch-size", type=int, default=32)
     rerank.add_argument("--limit", type=int, help="only the first N questions")
+    _add_types(rerank)
     rerank.set_defaults(handler=_rerank)
 
     export = commands.add_parser(
@@ -82,6 +85,7 @@ def _parser() -> argparse.ArgumentParser:
     export.add_argument("--candidates", type=Path, default=DEFAULT_CANDIDATES)
     export.add_argument("--out", type=Path, default=Path("eval/cache/pool.jsonl.gz"))
     export.add_argument("--pool", type=int, default=POOL_DEPTH)
+    _add_types(export)
     export.set_defaults(handler=_export_pool)
 
     answer = commands.add_parser("answer", help="generate the answers of a run with the model")
@@ -94,6 +98,13 @@ def _parser() -> argparse.ArgumentParser:
     answer.add_argument("--per-type", type=int, default=12, help="questions of each type")
     answer.add_argument("--seed", type=int, default=0)
     answer.add_argument("--limit", type=int, help="answer only the first N of the selection")
+    _add_types(answer)
+    answer.add_argument(
+        "--abstain-below",
+        type=float,
+        metavar="SCORE",
+        help="decline, without calling the model, when the best reranker score is below this",
+    )
     answer.add_argument("--model", help="defaults to LLM_MODEL (Haiku)")
     answer.add_argument("--budget-usd", type=float, default=2.0, help="stop when this is spent")
     answer.add_argument("--concurrency", type=int, default=4)
@@ -158,12 +169,39 @@ def _parser() -> argparse.ArgumentParser:
     )
     check.set_defaults(handler=_verify_check)
 
+    scores = commands.add_parser(
+        "abstention-scores",
+        help="how the best reranker score and the answer's own statements relate to correctness",
+    )
+    scores.add_argument("--fixture", type=Path, default=DEFAULT_GATE_FIXTURE)
+    scores.add_argument(
+        "--answers-run",
+        type=Path,
+        action="append",
+        help="a judged run (repeatable); defaults to the committed runs",
+    )
+    scores.add_argument("--judge", default="claude-haiku-5-5")
+    scores.add_argument("--out-md", type=Path, default=Path("eval/reports/abstention-scores.md"))
+    scores.add_argument(
+        "--out-json", type=Path, default=Path("eval/reports/abstention-scores.json")
+    )
+    scores.set_defaults(handler=_abstention_scores)
+
     fixture = commands.add_parser(
         "build-gate-fixture", help="write the fixture the regression gate replays"
     )
     fixture.add_argument("--questions", type=Path, default=DEFAULT_QUESTIONS)
     fixture.add_argument("--candidates", type=Path, default=DEFAULT_CANDIDATES)
     fixture.add_argument("--rerank", metavar="SCORES_FILE", type=Path, required=True)
+    fixture.add_argument(
+        "--extra",
+        nargs=2,
+        action="append",
+        default=[],
+        metavar=("CANDIDATES", "SCORES"),
+        help="more questions (such as the ones the corpus cannot answer): their candidates file "
+        "and reranker scores; they take no part in the retrieval numbers",
+    )
     fixture.add_argument("--out", type=Path, default=DEFAULT_GATE_FIXTURE)
     fixture.set_defaults(handler=_build_gate_fixture)
 
@@ -195,9 +233,26 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _questions(path: Path, limit: int | None) -> list[Question]:
-    questions = with_gold_documents(load_questions(path))
+def _questions(path: Path, limit: int | None, types: Sequence[str] | None = None) -> list[Question]:
+    """The questions retrieval is scored on (those with gold documents), or, when `types` names
+    question types, every question of those types, such as the ones whose answer is not in the
+    corpus."""
+    everything = load_questions(path)
+    if types:
+        questions = [question for question in everything if question.question_type in types]
+    else:
+        questions = with_gold_documents(everything)
     return questions[:limit] if limit else questions
+
+
+def _add_types(command: argparse.ArgumentParser) -> None:
+    command.add_argument(
+        "--types",
+        nargs="+",
+        metavar="TYPE",
+        help="question types to use instead of the questions with gold documents "
+        "(for example info_not_found high_level)",
+    )
 
 
 def _collect(args: argparse.Namespace) -> None:
@@ -215,7 +270,7 @@ async def _collect_async(args: argparse.Namespace, settings: "Settings") -> None
     from rag_engine.indexing.embedders import SentenceTransformerEmbedder
     from rag_engine.indexing.sparse import Bm25SparseEncoder
 
-    questions = _questions(args.questions, args.limit)
+    questions = _questions(args.questions, args.limit, args.types)
     embedder = SentenceTransformerEmbedder(
         settings.embedding_model,
         revision=settings.embedding_revision,
@@ -249,9 +304,25 @@ async def _collect_async(args: argparse.Namespace, settings: "Settings") -> None
     print(f"\nsearched {searched} questions; candidates are in {args.out}")
 
 
+def _to_rerank(
+    questions: Sequence[Question],
+    candidates: Mapping[str, object],
+    types: Sequence[str] | None,
+    limit: int | None,
+) -> list[Question]:
+    """Whatever the candidates file holds gets scored, gold documents or not: the questions the
+    corpus cannot answer have none."""
+    chosen = [
+        question
+        for question in questions
+        if question.question_id in candidates and (not types or question.question_type in types)
+    ]
+    return chosen[:limit] if limit else chosen
+
+
 def _rerank(args: argparse.Namespace) -> None:
-    questions = _questions(args.questions, args.limit)
     candidates = load_candidates(args.candidates)
+    questions = _to_rerank(load_questions(args.questions), candidates, args.types, args.limit)
     reranker = CrossEncoderReranker(args.model, device=args.device, batch_size=args.batch_size)
     scored = score_pools(
         questions, candidates, reranker, args.out, pool=args.pool, on_progress=_progress("scored")
@@ -272,13 +343,19 @@ async def _answer_async(args: argparse.Namespace, settings: "Settings") -> None:
     from rag_engine.evaluation.answering import answer_questions
     from rag_engine.evaluation.audit import write_manifest
     from rag_engine.evaluation.stored import StoredRetriever
+    from rag_engine.generation.abstain import AbstentionPolicy
     from rag_engine.generation.answer import AnswerGenerator
     from rag_engine.generation.cost import CostMeter, MeteredLLM
 
     if settings.anthropic_api_key is None:
         sys.exit("ANTHROPIC_API_KEY is not set; put it in .env")
     everything = load_questions(args.questions)
-    selection = stratified_subset(with_gold_documents(everything), args.per_type, seed=args.seed)
+    if args.types:  # every question of these types, such as the ones the corpus cannot answer
+        selection = [q for q in everything if q.question_type in args.types]
+    else:
+        selection = stratified_subset(
+            with_gold_documents(everything), args.per_type, seed=args.seed
+        )
     selection = selection[: args.limit] if args.limit else selection
     run_dir = _write_selection(args.runs_dir / args.run, selection)
     model = args.model or settings.llm_model
@@ -290,7 +367,13 @@ async def _answer_async(args: argparse.Namespace, settings: "Settings") -> None:
             "mode": args.mode,
             "passages": args.chunks,
             "documents": args.documents,
-            "selection": {"per_type": args.per_type, "seed": args.seed, "limit": args.limit},
+            "selection": {
+                "per_type": args.per_type,
+                "seed": args.seed,
+                "limit": args.limit,
+                "types": args.types,
+            },
+            "abstain_below": args.abstain_below,
         },
     )
     scores = load_scores(args.rerank) if args.rerank else None
@@ -306,6 +389,7 @@ async def _answer_async(args: argparse.Namespace, settings: "Settings") -> None:
             mode=args.mode,
             chunks=args.chunks,
             max_tokens=settings.llm_max_tokens,
+            abstention=AbstentionPolicy(args.abstain_below),
         )
         summary = await answer_questions(
             selection,
@@ -482,6 +566,20 @@ def _compare(args: argparse.Namespace) -> None:
     print(comparison.markdown)
 
 
+def _abstention_scores(args: argparse.Namespace) -> None:
+    from dataclasses import asdict
+
+    from rag_engine.evaluation.abstention import render
+    from rag_engine.evaluation.gate import COMMITTED_ABSTENTION_RUNS, abstention_report
+
+    runs = args.answers_run or list(COMMITTED_ABSTENTION_RUNS)
+    report = abstention_report(args.fixture, runs, args.judge)
+    args.out_md.parent.mkdir(parents=True, exist_ok=True)
+    args.out_md.write_text(render(report), encoding="utf-8")
+    args.out_json.write_text(json.dumps(asdict(report), indent=2) + "\n", encoding="utf-8")
+    print(render(report))
+
+
 def _append_searches(path: Path, searches: dict[str, dict[str, Any]], ids: dict[str, str]) -> None:
     """Keep what each search did, appended so a resumed run adds to the earlier one."""
     with path.open("a", encoding="utf-8") as handle:
@@ -494,18 +592,25 @@ def _build_gate_fixture(args: argparse.Namespace) -> None:
     from rag_engine.evaluation.gate import build_fixture
 
     model, _, _ = scoring_speed(args.rerank)
-    count = build_fixture(
-        _questions(args.questions, None),
-        load_candidates(args.candidates),
-        load_scores(args.rerank),
-        args.out,
-        reranker=model,
-    )
+    candidates = dict(load_candidates(args.candidates))
+    scores = dict(load_scores(args.rerank))
+    for extra_candidates, extra_scores in args.extra:
+        candidates.update(load_candidates(Path(extra_candidates)))
+        scores.update(load_scores(Path(extra_scores)))
+    questions = [
+        question
+        for question in load_questions(args.questions)
+        if question.question_id in candidates
+    ]
+    count = build_fixture(questions, candidates, scores, args.out, reranker=model)
     print(f"wrote {count} questions to {args.out}")
 
 
 def _gate(args: argparse.Namespace) -> None:
     from rag_engine.evaluation.gate import (
+        UNANSWERABLE_ARMS,
+        UNANSWERABLE_REPORT,
+        check_abstention_report,
         check_answer_report,
         load_fixture,
         make_baseline,
@@ -524,11 +629,17 @@ def _gate(args: argparse.Namespace) -> None:
         return
     retrieval = run_gate(args.fixture, args.baseline)
     print(retrieval.text)
-    problems = check_answer_report()
+    problems = check_answer_report() + check_answer_report(
+        UNANSWERABLE_ARMS, report=UNANSWERABLE_REPORT
+    )
     print("Answer comparison: " + ("consistent and like for like." if not problems else ""))
     for problem in problems:
         print(f"- {problem}")
-    if not retrieval.passed or problems:
+    abstention = check_abstention_report(args.fixture)
+    print("Abstention numbers: " + ("match the fixture and the runs." if not abstention else ""))
+    for problem in abstention:
+        print(f"- {problem}")
+    if not retrieval.passed or problems or abstention:
         sys.exit(1)
 
 
@@ -540,7 +651,7 @@ def _write_selection(run_dir: Path, selection: list[Question]) -> Path:
 
 
 def _export_pool(args: argparse.Namespace) -> None:
-    questions = _questions(args.questions, None)
+    questions = _questions(args.questions, None, args.types)
     count = export_pools(questions, load_candidates(args.candidates), args.out, pool=args.pool)
     print(f"wrote the pools of {count} questions to {args.out}")
 

@@ -113,3 +113,36 @@ async def test_a_budget_error_is_not_reported_as_a_failed_question(tmp_path: Pat
     summary = await answer_questions([question("q1")], generator(llm), tmp_path)
 
     assert (summary.answered, summary.failed, summary.stopped_by_budget) == (0, 0, True)
+
+
+async def test_a_declined_question_is_answered_with_the_refusal_and_reports_no_documents(
+    tmp_path: Path,
+) -> None:
+    from rag_engine.generation.abstain import MESSAGE, AbstentionPolicy
+
+    llm = FakeLLM("never used")
+    weak = AnswerGenerator(
+        FakeRetriever([make_hit("a", doc_id="d1", score=-5.0)]),
+        llm,
+        mode="hybrid+rerank",
+        abstention=AbstentionPolicy(0.0),
+    )
+
+    await answer_questions([question("q1")], weak, tmp_path)
+
+    (answer,) = rows(tmp_path / "answers.jsonl")
+    (trace,) = rows(tmp_path / "trace.jsonl")
+    assert answer == {"question_id": "q1", "answer": MESSAGE, "document_ids": []}
+    assert trace["abstained"] is True
+    assert trace["abstention"] == {"reason": "weak_evidence", "top_score": -5.0, "threshold": 0.0}
+    assert (trace["input_tokens"], trace["output_tokens"]) == (0, 0)
+    assert llm.prompts == []
+
+
+async def test_an_answered_question_is_not_marked_as_declined_in_the_trace(
+    tmp_path: Path,
+) -> None:
+    await answer_questions([question("q1")], generator(), tmp_path)
+
+    (trace,) = rows(tmp_path / "trace.jsonl")
+    assert (trace["abstained"], trace["abstention"]) == (False, None)

@@ -61,7 +61,7 @@ character for character, at most 300 characters. Use an empty string when "suppo
 - Give one verdict for every numbered statement.\
 """
 
-_ABSENCE = re.compile(
+ABSENCE = re.compile(
     r"(?:could\s*n[o']t|cannot|can't|unable to|did\s*n[o']t|do(?:es)?\s*n[o']t)\s+(?:\w+ly\s+)?"
     r"(?:find|locate|give|say|state|specify|mention|describe|provide|list|include|contain|cover"
     r"|define|show|address|name)"
@@ -111,7 +111,7 @@ class Claim:
 @dataclass(frozen=True, slots=True)
 class Verification:
     claims: list[Claim]
-    method: Literal["judge", "values"]
+    method: Literal["judge", "values", "none"]  # "none": there was no answer to verify
     model: str | None = None
     usage: LLMUsage | None = None
     error: str | None = None  # why the judge could not run, if it was meant to
@@ -331,11 +331,21 @@ class CitationVerifier:
         return Verification(done, method="judge", model=judge.model, usage=usage, error=error)
 
 
+def is_absence(text: str) -> bool:
+    """Whether a statement says that the documents do not hold something ("the passages do not
+    give the default value")."""
+    return ABSENCE.search(text) is not None
+
+
+def is_heading(text: str) -> bool:
+    return _HEADING.fullmatch(text.strip()) is not None
+
+
 def _no_claim_reason(text: str) -> str | None:
     """Why an uncited statement asserts nothing that a passage could support, if that is so."""
-    if _HEADING.fullmatch(text.strip()):
+    if is_heading(text):
         return "a heading"
-    if _ABSENCE.search(text):
+    if is_absence(text):
         return "says the documents lack something"
     if _ABOUT_PASSAGES.search(text):
         return "comments on the passages themselves"

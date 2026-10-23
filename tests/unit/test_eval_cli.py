@@ -76,3 +76,23 @@ def test_every_command_is_listed_in_the_help(capsys: pytest.CaptureFixture[str])
     assert all(
         command in out for command in ("collect", "rerank", "export-pool", "answer", "report")
     )
+
+
+def test_questions_without_gold_documents_are_reranked_when_they_have_candidates() -> None:
+    from rag_engine.evaluation.questions import Question
+
+    questions = [
+        Question("q1", "basic", "a?", ("doc",), (), "", ()),
+        Question("q2", "info_not_found", "b?", (), (), "", ()),
+        Question("q3", "info_not_found", "c?", (), (), "", ()),
+    ]
+    candidates = {"q1": object(), "q2": object()}  # q3 was never searched
+
+    assert [q.question_id for q in cli._to_rerank(questions, candidates, None, None)] == [
+        "q1",
+        "q2",
+    ]
+    assert [
+        q.question_id for q in cli._to_rerank(questions, candidates, ["info_not_found"], None)
+    ] == ["q2"]
+    assert [q.question_id for q in cli._to_rerank(questions, candidates, None, 1)] == ["q1"]

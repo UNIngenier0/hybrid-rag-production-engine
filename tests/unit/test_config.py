@@ -59,3 +59,17 @@ def test_retrieval_depths_must_be_positive(field: str) -> None:
 
 def test_dense_search_effort_defaults_to_the_measured_value(settings: Settings) -> None:
     assert settings.qdrant_hnsw_ef == 64
+
+
+def test_the_abstention_threshold_is_off_unless_it_is_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@host/db")
+    monkeypatch.delenv("ABSTAIN_THRESHOLD", raising=False)
+    assert Settings(_env_file=None).abstain_threshold is None
+
+    monkeypatch.setenv("ABSTAIN_THRESHOLD", "")  # what Docker Compose passes for an unset variable
+    assert Settings(_env_file=None).abstain_threshold is None
+
+    monkeypatch.setenv("ABSTAIN_THRESHOLD", "-1.5")
+    assert Settings(_env_file=None).abstain_threshold == -1.5

@@ -1,0 +1,85 @@
+{
+  "questions": 30,
+  "arms": {
+    "Hybrid + rerank (ours)": {
+      "correct": 0.8666666666666667,
+      "completeness": 0.88278,
+      "combined": 0.8277800000000001,
+      "recall": 0.0,
+      "invalid_extra": 0.0,
+      "cost_usd": 0.0250201
+    },
+    "Iterative grep agent": {
+      "correct": 0.9,
+      "completeness": 0.86611,
+      "combined": 0.8383333333333333,
+      "recall": 0.0,
+      "invalid_extra": 0.0,
+      "combined_vs_baseline": 0.01055333333333333,
+      "cost_usd": 1.431579
+    },
+    "Single-attempt grep": {
+      "correct": 0.6666666666666666,
+      "completeness": 0.7366666666666667,
+      "combined": 0.6666666666666666,
+      "recall": 0.0,
+      "invalid_extra": 0.0,
+      "combined_vs_baseline": -0.16111333333333333,
+      "cost_usd": 0.030656
+    }
+  },
+  "audit": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "same questions",
+        "passed": true,
+        "detail": "30 questions"
+      },
+      {
+        "name": "every question answered",
+        "passed": true,
+        "detail": "all answered"
+      },
+      {
+        "name": "every answer scored",
+        "passed": true,
+        "detail": "all scored"
+      },
+      {
+        "name": "same gold answers for everyone",
+        "passed": true,
+        "detail": "judged against the original gold set (no correction)"
+      },
+      {
+        "name": "same judge",
+        "passed": true,
+        "detail": "claude-haiku-5-5 for every system (claude-haiku-5-5)"
+      },
+      {
+        "name": "same answering model",
+        "passed": true,
+        "detail": "claude-haiku-5-5 for every system"
+      },
+      {
+        "name": "same evidence budget for single-pass systems",
+        "passed": true,
+        "detail": "5 passages or files per question for Hybrid + rerank (ours), Single-attempt grep"
+      },
+      {
+        "name": "same document-reporting rule",
+        "passed": true,
+        "detail": "documents reported = cited for Hybrid + rerank (ours), Single-attempt grep"
+      },
+      {
+        "name": "cost measured for every system",
+        "passed": true,
+        "detail": "every system has a usage report or token counts"
+      }
+    ],
+    "notes": [
+      "Iterative grep agent decides for itself how much to read and search (cost and time are reported next to its score).",
+      "Iterative grep agent: answers end with a source list, so the evaluator removes citations before judging, as the benchmark does by default."
+    ]
+  }
+}

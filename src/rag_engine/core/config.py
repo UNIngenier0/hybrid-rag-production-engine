@@ -82,13 +82,17 @@ class Settings(BaseSettings):
     # answering model; a stronger one makes the check stricter and costs more.
     verify_citations: bool = True
     verification_model: str | None = None
+    # Decline to answer when the best reranked passage scores below this (cross-encoder score of
+    # the configured reranker, so it only means something with `hybrid+rerank`). None never
+    # declines on score.
+    abstain_threshold: float | None = None
 
     # Bulk ingestion.
     dataset_path: Path = Path("data/raw/documents/test.parquet")
     vectors_dir: Path = Path("data/vectors")
     ingest_batch_size: int = Field(default=200, gt=0)
 
-    @field_validator("anthropic_api_key", "verification_model", mode="before")
+    @field_validator("anthropic_api_key", "verification_model", "abstain_threshold", mode="before")
     @classmethod
     def _empty_means_unset(cls, value: object) -> object:
         """Docker Compose passes an unset variable as an empty string: that means "not set"."""

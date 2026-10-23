@@ -9,7 +9,9 @@ from rag_engine.evaluation.candidates import QuestionCandidates
 from rag_engine.evaluation.gate import (
     GateError,
     Pipeline,
+    abstention_report,
     build_fixture,
+    check_abstention_report,
     check_answer_report,
     load_fixture,
     make_baseline,
@@ -211,3 +213,111 @@ def test_the_committed_answer_comparison_is_current_and_like_for_like(monkeypatc
     monkeypatch.chdir(Path(__file__).resolve().parents[2])
 
     assert check_answer_report() == []
+
+
+def fixture_with_unanswerable(tmp_path: Path) -> Path:
+    out = tmp_path / "fixture.jsonl.gz"
+    build_fixture(
+        [question("q1", ("gold",)), question("u1", (), "info_not_found")],
+        {"q1": candidates("q1"), "u1": candidates("u1")},
+        {
+            "q1": {"d1": 0.1, "d2": 0.2, "g": 0.9, "b1": 0.3},
+            "u1": {"d1": 0.1, "d2": 0.2, "g": 0.3, "b1": 0.1},
+        },
+        out,
+        reranker="some/reranker",
+    )
+    return out
+
+
+def test_questions_without_gold_documents_take_no_part_in_the_retrieval_numbers(
+    tmp_path: Path,
+) -> None:
+    _, cases = load_fixture(fixture_with_unanswerable(tmp_path))
+    _, only_gold = load_fixture(fixture(tmp_path))
+
+    assert len(cases) == 2
+    assert measure(cases, PIPELINE) == measure(only_gold, PIPELINE)
+
+
+def write_run(folder: Path, answers: dict[str, tuple[str, bool]]) -> Path:
+    folder.mkdir(parents=True)
+    (folder / "trace.jsonl").write_text(
+        "\n".join(json.dumps({"question_id": q, "raw_answer": a}) for q, (a, _) in answers.items())
+        + "\n",
+        encoding="utf-8",
+    )
+    rows = [
+        {
+            "question_id": q,
+            "question_type": "basic" if q.startswith("q") else "info_not_found",
+            "answer_correct": ok,
+            "completeness_pct": 100.0 if ok else 0.0,
+        }
+        for q, (_, ok) in answers.items()
+    ]
+    (folder / "results-claude-haiku-5-5.json").write_text(
+        json.dumps({"questions": rows}), encoding="utf-8"
+    )
+    return folder
+
+
+def test_the_abstention_report_pairs_scores_with_correctness_and_what_answers_say(
+    tmp_path: Path, monkeypatch
+) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr("rag_engine.evaluation.gate.shipped_pipeline", lambda: PIPELINE)
+    run = write_run(
+        tmp_path / "run",
+        {"q1": ("The gold value is 5 [1].", True), "u1": ("The documents do not give it.", True)},
+    )
+
+    report = abstention_report(fixture_with_unanswerable(tmp_path), [run])
+
+    rows = {(r.group, r.status): (r.n, r.correct) for r in report.statuses}
+    assert rows == {("answerable", "answered"): (1, 1), ("info_not_found", "not_found"): (1, 1)}
+    types = {row.question_type: row.median for row in report.by_type}
+    assert types["basic"] == pytest.approx(0.9)
+    assert types["info_not_found"] == pytest.approx(0.3)
+
+
+def test_the_committed_abstention_numbers_must_match_the_fixture_and_the_runs(
+    tmp_path: Path, monkeypatch
+) -> None:  # type: ignore[no-untyped-def]
+    from dataclasses import asdict
+
+    monkeypatch.setattr("rag_engine.evaluation.gate.shipped_pipeline", lambda: PIPELINE)
+    path = fixture_with_unanswerable(tmp_path)
+    run = write_run(
+        tmp_path / "run", {"q1": ("Five [1].", True), "u1": ("The documents do not say.", True)}
+    )
+    published = tmp_path / "abstention.json"
+    published.write_text(json.dumps(asdict(abstention_report(path, [run]))), encoding="utf-8")
+
+    assert check_abstention_report(path, published, [run]) == []
+
+    write_run(tmp_path / "other", {"q1": ("Five [1].", False), "u1": ("It is X.", False)})
+    (run / "trace.jsonl").write_text(
+        (tmp_path / "other" / "trace.jsonl").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    assert "does not match" in check_abstention_report(path, published, [run])[0]
+
+
+def test_missing_runs_are_reported_instead_of_crashing(tmp_path: Path) -> None:
+    published = tmp_path / "x.json"
+    published.write_text("{}", encoding="utf-8")
+
+    problems = check_abstention_report(
+        fixture_with_unanswerable(tmp_path), published, [tmp_path / "nowhere"]
+    )
+
+    assert "missing" in problems[0]
+
+
+def test_nothing_is_checked_before_the_abstention_numbers_are_published(tmp_path: Path) -> None:
+    assert (
+        check_abstention_report(fixture_with_unanswerable(tmp_path), tmp_path / "none.json") == []
+    )
+
+
+def test_a_comparison_that_is_not_published_yet_is_not_checked(tmp_path: Path) -> None:
+    assert check_answer_report([("a", tmp_path / "nowhere")], report=tmp_path / "none.json") == []

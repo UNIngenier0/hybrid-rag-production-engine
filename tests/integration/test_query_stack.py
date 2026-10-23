@@ -63,3 +63,25 @@ def test_without_the_judge_nothing_is_called_verified() -> None:
 
     assert body["verification"]["method"] == "values"
     assert all(claim["status"] != "verified" for claim in body["claims"])
+
+
+def test_the_answer_says_whether_the_documents_lacked_something() -> None:
+    body = ask(verify=False).json()
+
+    assert body["status"] in {"answered", "partial", "not_found", "abstained"}
+    assert body["abstained"] == (body["status"] == "abstained")
+    assert (body["status"] == "answered") == (not body["gaps"] and not body["abstained"])
+
+
+def test_a_question_the_documents_cannot_answer_is_not_presented_as_answered() -> None:
+    body = httpx.post(
+        f"{API_URL}/v1/query",
+        json={
+            "query": "Which public blockchain network and smart contract address does the admin "
+            "activity chronicle anchor its daily Merkle roots to?",
+            "verify": False,
+        },
+        timeout=300,
+    ).json()
+
+    assert body["status"] in {"partial", "not_found", "abstained"}, body["answer"]

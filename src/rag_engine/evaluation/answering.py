@@ -90,6 +90,16 @@ def _trace_row(question: Question, generated: GeneratedAnswer) -> dict[str, Any]
         "cited_doc_ids": generated.cited_doc_ids,
         "retrieved_doc_ids": generated.retrieved_doc_ids,
         "unresolved_markers": generated.unresolved_markers,
+        "abstained": generated.abstention is not None,
+        "abstention": (
+            {
+                "reason": generated.abstention.reason,
+                "top_score": generated.abstention.top_score,
+                "threshold": generated.abstention.threshold,
+            }
+            if generated.abstention is not None
+            else None
+        ),
         "input_tokens": generated.usage.input_tokens,
         "output_tokens": generated.usage.output_tokens,
         "model": generated.model,

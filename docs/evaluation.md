@@ -157,7 +157,8 @@ judge scores them.
 
 The 96 questions are 12 of each of the eight types that have gold documents, drawn with a fixed
 seed (`eval/runs/*/questions.txt`). The two types without gold documents (information that is not in
-the corpus, and high-level questions) are Phase 5, because they test abstention.
+the corpus, and high-level questions) are compared separately, on all 30 of them, in
+[Questions the corpus cannot answer](#questions-the-corpus-cannot-answer-and-broad-questions).
 
 The evaluator is the benchmark's `metrics_based_eval`: *correctness* is a judge's yes or no on
 whether the answer agrees with the gold answer, *completeness* is the share of gold facts the
@@ -198,6 +199,43 @@ By question type, the combined score (12 questions each, so read the types as di
 - **A single grep attempt is not a baseline worth fearing**: with no ranking beyond match counts, a
   common word brings back the longest threads, and for 74 of the 96 questions none of the five
   files held the answer (only 13 had any gold document among them).
+
+### Questions the corpus cannot answer, and broad questions
+
+The benchmark has two question types with no gold documents, 30 questions in all, and the same
+three systems answered every one ([comparison](../eval/reports/answer-comparison-unanswerable.md),
+nine fairness checks, all passed):
+
+- **`info_not_found` (20)**: the question is about a cluster of documents that exist, but asks for a
+  detail they do not hold. The evaluator's one fact is that the answer acknowledges this instead of
+  inventing it.
+- **`high_level` (10)**: broad company questions that no single document answers.
+
+| System | `info_not_found` (20) | `high_level` (10) | All 30 | Combined vs ours | Cost of the answers |
+|---|---|---|---|---|---|
+| **Hybrid + rerank (ours)** | 100.0 | 48.3 | **82.8** | | $0.03 ($0.0008 per question) |
+| Iterative grep agent | 100.0 | 51.5 | **83.8** | +1.1 (-10.5, +12.6) | $1.43 ($0.0477 per question) |
+| Single-attempt grep | 100.0 | 0.0 | **66.7** | -16.1 (-28.3, -3.9) | $0.03 ($0.0010 per question) |
+
+- **All three acknowledge the missing information in 20 of 20.** The pass mark is not telling the
+  systems apart; it shows that none of them presents a related passage as the answer. The single
+  fact is judged on the acknowledgement only: extra related content is allowed by the gold answer
+  ("the answer may present relevant and related information").
+- **On the broad questions the iterating agent is nominally ahead of ours (51.5 against 48.3), and
+  the single attempt gets none.** Ten questions cannot settle the first difference. Six of ten
+  broad questions correct (ours) and seven (agent) is the same story as the many-documents types
+  of the 96-question comparison: five passages cannot hold an answer that is spread over the
+  corpus.
+- **The agent is the expensive way to say "not found":** $0.048 per question here against $0.020 on
+  the answerable questions, because it keeps searching a corpus where the answer is not. Ours
+  costs the same $0.0008 as always.
+- The run of ours on these 30 questions, with the reranker scores of `bge-reranker-v2-m3` computed
+  offline like the others, is in `eval/runs/rag-haiku-unanswerable`; the agent and the single grep
+  were stopped once and resumed, and their usage reports (`cost-*.part*.json`) are summed in
+  `cost-*.json`.
+
+What the answers say about themselves, and whether a score threshold could decline these questions
+instead, is in [docs/generation.md](generation.md#when-the-documents-do-not-hold-the-answer).
 
 ### Fairness audit
 
@@ -293,6 +331,30 @@ python -m rag_engine.evaluation.cli answer --run rag-haiku-all --per-type 1000 \
 scripts/benchmark/evaluate.sh eval/runs/rag-haiku-all claude-haiku-5-5 3
 LABEL=repeat scripts/benchmark/evaluate.sh eval/runs/rag-haiku claude-haiku-5-5   # judge the same answers again
 uv run python scripts/analysis/fairness_audit.py                                  # the audit tables
+```
+
+The 30 questions without gold documents (about $1.6 more, the agent being most of it):
+
+```bash
+# Candidates from the live index, then the reranker scores on a GPU, for just these types.
+python -m rag_engine.evaluation.cli collect --types info_not_found high_level \
+    --out eval/cache/abstention/candidates.jsonl.gz
+python -m rag_engine.evaluation.cli export-pool --types info_not_found high_level \
+    --candidates eval/cache/abstention/candidates.jsonl.gz --out eval/cache/abstention/pool.jsonl.gz
+uv run --group kaggle python scripts/kaggle/rerank.py run --username <kaggle-user> \
+    --wheel dist/<wheel> --candidates eval/cache/abstention/pool.jsonl.gz \
+    --models BAAI/bge-reranker-v2-m3 --out eval/cache/abstention
+
+python -m rag_engine.evaluation.cli answer --run rag-haiku-unanswerable --types info_not_found high_level \
+    --candidates eval/cache/abstention/candidates.jsonl.gz \
+    --rerank eval/cache/abstention/rerank-BAAI_bge-reranker-v2-m3.jsonl.gz
+scripts/benchmark/evaluate.sh eval/runs/rag-haiku-unanswerable claude-haiku-5-5
+# the two rivals as above, with eval/runs/*-unanswerable folders, then `compare` with
+# --out-md eval/reports/answer-comparison-unanswerable.md (and the matching --out-json)
+
+python -m rag_engine.evaluation.cli build-gate-fixture --rerank eval/cache/rerank-BAAI_bge-reranker-v2-m3.jsonl.gz \
+    --extra eval/cache/abstention/candidates.jsonl.gz eval/cache/abstention/rerank-BAAI_bge-reranker-v2-m3.jsonl.gz
+python -m rag_engine.evaluation.cli abstention-scores     # eval/reports/abstention-scores.{md,json}
 ```
 
 The benchmark's agent and evaluator call the Anthropic API on their own, with no cost report and no

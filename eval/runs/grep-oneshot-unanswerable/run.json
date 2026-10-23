@@ -1,0 +1,8 @@
+{
+  "system": "grep-oneshot",
+  "model": "claude-haiku-5-5",
+  "passages": 5,
+  "documents": "cited",
+  "window_chars": 3200,
+  "search_timeout_seconds": 300
+}

@@ -12,6 +12,7 @@ from rag_engine.core.config import Settings
 from rag_engine.core.errors import RetrievalUnavailableError
 from rag_engine.core.models import RetrievalMode, RetrievalResult, SearchFilters
 from rag_engine.core.ports import Reranker, Retriever
+from rag_engine.generation.abstain import AbstentionPolicy
 from rag_engine.generation.answer import AnswerGenerator
 from rag_engine.generation.query import QueryService
 from rag_engine.generation.verify import CitationVerifier
@@ -140,6 +141,7 @@ def build_query_service(
         mode="hybrid+rerank" if settings.reranker_model else "hybrid",
         chunks=settings.query_chunks,
         max_tokens=settings.llm_max_tokens,
+        abstention=AbstentionPolicy(settings.abstain_threshold),
     )
     verifier = CitationVerifier(judge, max_tokens=settings.llm_max_tokens)
     return QueryService(generator, verifier), clients

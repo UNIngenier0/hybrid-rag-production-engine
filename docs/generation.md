@@ -4,8 +4,7 @@
 the answer, that the passage it cites really says it. This page explains how an answer is made,
 how a citation is verified, what the verifier was measured to catch, and what it does not do.
 
-Abstention (declining when the evidence is weak), conflict-aware answering and the RAGAS metrics
-are the rest of Phase 5 and are not here yet.
+Conflict-aware answering and the RAGAS metrics are the rest of Phase 5 and are not here yet.
 
 ## The endpoint
 
@@ -21,6 +20,10 @@ for good answers, the index and a reranker (`RERANKER_MODEL`). A real response, 
 ```json
 {
   "mode": "hybrid+rerank",
+  "status": "answered",
+  "gaps": [],
+  "abstained": false,
+  "abstention": null,
   "answer": "The default grace period is 10ms. ... The grace period is configurable through a per-request config and a runtime policy override.",
   "answer_with_markers": "The default grace period is 10ms [1][2]. ... a runtime policy override [1][2].",
   "citations": [
@@ -147,6 +150,68 @@ wrong citation but a missing one (18% of statements carry no marker at all), whi
 following the instruction to cite. The share of `unsupported` statements, the ones whose citation
 points at a passage that does not say them, is 1% to 3%.
 
+## When the documents do not hold the answer
+
+Every response says what the answer claims about its own completeness. `status` is one of:
+
+| `status` | Meaning |
+|---|---|
+| `answered` | The answer does not say anything is missing |
+| `partial` | The answer states part of what was asked and says the documents lack the rest. `gaps` quotes those sentences |
+| `not_found` | The answer says only that nothing was found |
+| `abstained` | No answer was written: the service declined before calling the model (see below) |
+
+`partial` and `not_found` are read from the answer's own sentences ("the passages do not give the
+default value", "I could not find the contract address"), with the same patterns the verifier uses to
+recognise a statement about absence. It needs no model call, so it is there when `verify` is off.
+
+**What it was measured to do** ([report](../eval/reports/abstention-scores.md), recomputed from the
+committed runs and the regression-gate fixture in every build). The 470 questions that have gold
+documents, answered by this pipeline and judged by the benchmark's evaluator:
+
+| Answer says | Answers | Judged correct |
+|---|---|---|
+| nothing is missing (`answered`) | 261 | 219 (84%) |
+| something is missing (`partial`, `not_found`) | 209 | 32 (15%) |
+
+The flag marks 177 of the 219 wrong answers and 32 of the 251 right ones. Fourteen of those 32 were
+read: every one was a real gap (a detail the answer says the documents lack) that the gold answer
+did not need. So the flag is a reliability signal, not a correctness verdict.
+
+The benchmark has 20 `info_not_found` questions, written so that related documents exist and the
+asked-for detail does not. The same pipeline, with the prompt unchanged, acknowledges that the
+information is missing in 20 of 20 (the evaluator's one fact for these questions, scored 100.0), and
+every one of the 20 answers is `partial`. A prompt variant that explicitly asked for a caveat when
+the passages cover only part of the question was tried on the same questions (with hybrid retrieval, before the
+reranker scores were available) and gave the same 20 of 20, so it was not kept. The 10 `high_level` questions, which need many documents put together, are the weak
+spot: 6 of 10 correct (48.3 combined), and only 4 of the 10 answers say something is missing.
+
+**Declining before writing.** The service also declines without calling the model in two cases:
+nothing was retrieved (always), and, only if `ABSTAIN_THRESHOLD` is set and the mode is
+`hybrid+rerank`, the best reranked passage scores below it. The response then has `status:
+"abstained"`, `abstained: true` and `abstention` with the reason, the best score and the threshold;
+no tokens are spent.
+
+The threshold is off by default because the score is a weak signal on this benchmark. It is the
+cross-encoder's probability (0 to 1) for `bge-reranker-v2-m3`, and a value is only valid for the
+reranker that produced it:
+
+| Answerable questions refused | Threshold | `info_not_found` caught (of 20) | Wrong answers avoided (of 219) | Right answers given up (of 251) |
+|---|---|---|---|---|
+| 1% | 0.225 | 0 | 3 | 1 |
+| 2% | 0.318 | 2 | 8 | 1 |
+| 5% | 0.495 | 5 | 21 | 2 |
+| 10% | 0.630 | 9 | 36 | 11 |
+| 20% | 0.822 | 15 | 62 | 32 |
+
+A random answerable question has a higher best score than a random `info_not_found` one 82% of the
+time, and a correct answer has a higher one than a wrong answer 68% of the time: the related
+documents that make these questions hard also score high, so a score cannot tell them apart well.
+The model's own statement of what is missing is the stronger signal (it marks 177 of 219 wrong
+answers, against 36 for a threshold that costs 11 right answers). A threshold near 0.3 is a cheap
+safety net for questions with nothing relevant in the corpus (2% of answerable questions refused,
+and 8 of the 9 were answered wrongly anyway), which this benchmark has no questions to exercise.
+
 ## Cost and speed
 
 An answer costs about $0.001 to $0.002 with Claude Haiku 5.5 (the answer call plus the judge call),
@@ -163,6 +228,7 @@ and cost more.
 | `VERIFICATION_MODEL` | the same | The model that judges the citations |
 | `VERIFY_CITATIONS` | `true` | Whether a request without `verify` runs the judge |
 | `QUERY_CHUNKS` | 5 | Passages the answer is written from |
+| `ABSTAIN_THRESHOLD` | none | Decline, without calling the model, when the best reranker score is below this |
 
 ## Limits
 
@@ -179,6 +245,9 @@ and cost more.
   passages that were shown; with a citation it is judged like any other statement (and often comes
   back `unsupported`), without one it is `no_claim`.
 - **No streaming, no conversation.** One question, one complete answer.
-- **No abstention yet.** An answer that says it could not find the information is returned as
-  such, and its statements are `no_claim`; there is no threshold that stops a weak answer from
-  being written. That is the next part of Phase 5.
+- **`status` reads wording.** An answer that lacks something but says so in a way the patterns do
+  not know is `answered`, and a sentence that merely contains "does not include" about the subject
+  itself counts as a gap. None of the 14 flagged correct answers that were read was a wrong flag,
+  but the false-flag rate in general is not measured.
+- **Broad questions.** Questions that need many documents put together (`high_level`) are limited by
+  the five passages the answer is written from: 4 of 10 were wrong.

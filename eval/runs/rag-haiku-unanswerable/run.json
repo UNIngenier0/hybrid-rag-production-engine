@@ -1,0 +1,17 @@
+{
+  "system": "rag",
+  "model": "claude-haiku-5-5",
+  "mode": "hybrid+rerank",
+  "passages": 5,
+  "documents": "cited",
+  "selection": {
+    "per_type": 12,
+    "seed": 0,
+    "limit": null,
+    "types": [
+      "info_not_found",
+      "high_level"
+    ]
+  },
+  "abstain_below": null
+}
