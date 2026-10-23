@@ -1,0 +1,877 @@
+{
+  "recorded_on": "2026-10-23",
+  "server": {
+    "reranker": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+    "hardware": "a laptop CPU, no GPU"
+  },
+  "examples": [
+    {
+      "id": "qst_0411",
+      "type": "conflicting_info",
+      "question": "On Streamly AI's dedicated pool dp-132-usw, what % of interactive burst credits should be reserved exclusively for priority=high routes?",
+      "response": {
+        "query": "On Streamly AI's dedicated pool dp-132-usw, what % of interactive burst credits should be reserved exclusively for priority=high routes?",
+        "mode": "hybrid+rerank",
+        "cached": false,
+        "answer": "The current reservation target is 30% of interactive burst credits, reserved exclusively for priority=high routes on dp-132-usw. This replaced the earlier 20% suggestion from the original ticket. The 30% split was applied on the 2026-03-12 call, and the next-steps plan says to keep it for mixed interactive and bulk-ingest dedicated pools.",
+        "status": "answered",
+        "gaps": [],
+        "abstained": false,
+        "abstention": null,
+        "answer_with_markers": "The current reservation target is 30% of interactive burst credits, reserved exclusively for priority=high routes on dp-132-usw [1]. This replaced the earlier 20% suggestion from the original ticket [1][2]. The 30% split was applied on the 2026-03-12 call, and the next-steps plan says to keep it for mixed interactive and bulk-ingest dedicated pools [1].",
+        "citations": [
+          {
+            "marker": 1,
+            "doc_id": "dsid_8ffbd9fe82df457ca67d4fbc9ff1090c",
+            "title": "Sliced ingest 429s on dedicated pool after migration — priority class + burst pool debug notes (Streamly AI)",
+            "source_type": "google_drive",
+            "verified": true,
+            "claims": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "marker": 2,
+            "doc_id": "dsid_5f3a672da4974781a5577b0f3d4993e9",
+            "title": "Sustained 429s during sliced ingest with priority class mismatch after dedicated pool migration",
+            "source_type": "jira",
+            "verified": true,
+            "claims": [
+              1
+            ]
+          }
+        ],
+        "claims": [
+          {
+            "text": "The current reservation target is 30% of interactive burst credits, reserved exclusively for priority=high routes on dp-132-usw.",
+            "markers": [
+              1
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "Updated reservation target: reserve 30% (previous internal suggestion was 20%) of interactive burst credits exclusively for priority=high routes."
+          },
+          {
+            "text": "This replaced the earlier 20% suggestion from the original ticket.",
+            "markers": [
+              1,
+              2
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "Updated reservation target: reserve 30% (previous internal suggestion was 20%) of interactive burst credits exclusively for priority=high routes."
+          },
+          {
+            "text": "The 30% split was applied on the 2026-03-12 call, and the next-steps plan says to keep it for mixed interactive and bulk-ingest dedicated pools.",
+            "markers": [
+              1
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "Config change (applied on 2026-03-12 call)"
+          }
+        ],
+        "verification": {
+          "method": "judge",
+          "model": "claude-haiku-5-5",
+          "statements": 3,
+          "verified": 3,
+          "all_verified": true,
+          "error": null
+        },
+        "document_ids": [
+          "dsid_8ffbd9fe82df457ca67d4fbc9ff1090c",
+          "dsid_5f3a672da4974781a5577b0f3d4993e9"
+        ],
+        "usage": {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 7546,
+          "output_tokens": 735,
+          "cost_usd": 0.001122
+        },
+        "timings_ms": {
+          "retrieval_embed": 4073.7,
+          "retrieval_dense_search": 8841.8,
+          "retrieval_encode": 16.6,
+          "retrieval_bm25_search": 12825.5,
+          "retrieval_fuse": 2.2,
+          "retrieval_rerank": 5211.8,
+          "retrieval_context": 57.5,
+          "retrieval_total": 18188.1,
+          "generation": 2198.3,
+          "verification": 1972.3,
+          "total": 22379.6
+        }
+      }
+    },
+    {
+      "id": "qst_0223",
+      "type": "semantic",
+      "question": "Why did our telemetry collectors in the dedicated production clusters stop being able to mint short lived credentials for a customer cloud identity when going through the AWS to GCP federation bridge, after an IAM policy tightening with conditional rules, causing missing metrics and traces for about a day in US East and EU West?",
+      "response": {
+        "query": "Why did our telemetry collectors in the dedicated production clusters stop being able to mint short lived credentials for a customer cloud identity when going through the AWS to GCP federation bridge, after an IAM policy tightening with conditional rules, causing missing metrics and traces for about a day in US East and EU West?",
+        "mode": "hybrid+rerank",
+        "cached": false,
+        "answer": "The telemetry failures trace to a conditional IAM binding added during an org-policy/IAM cleanup. The Jira ticket says the affected observability agents began failing after that cleanup added attribute-based conditionals on service account impersonation roles. The broker's impersonation attempt was denied with the message \"Condition 'resource.name.startsWith('projects/_/serviceAccounts/')' not satisfied,\" and the GCP audit log shows the constraint 'iam.allowedPolicyMemberDomains' enforced with a conditional binding on roles/iam.serviceAccountTokenCreator. The impact was missing metrics and traces for about six Dedicated customers in us-east and eu-west for roughly 36 hours. The passages do not record a confirmed fix.",
+        "status": "answered",
+        "gaps": [],
+        "abstained": false,
+        "abstention": null,
+        "answer_with_markers": "The telemetry failures trace to a conditional IAM binding added during an org-policy/IAM cleanup. The Jira ticket says the affected observability agents began failing after that cleanup added attribute-based conditionals on service account impersonation roles [1]. The broker's impersonation attempt was denied with the message \"Condition 'resource.name.startsWith('projects/_/serviceAccounts/')' not satisfied,\" and the GCP audit log shows the constraint 'iam.allowedPolicyMemberDomains' enforced with a conditional binding on roles/iam.serviceAccountTokenCreator [1]. The impact was missing metrics and traces for about six Dedicated customers in us-east and eu-west for roughly 36 hours [1]. The passages do not record a confirmed fix.",
+        "citations": [
+          {
+            "marker": 1,
+            "doc_id": "dsid_62ff534dc35a425896b265216f94f69a",
+            "title": "Observability agent service-account impersonation denied due to cross-cloud IAM conditional mismatch",
+            "source_type": "jira",
+            "verified": true,
+            "claims": [
+              1,
+              2,
+              3
+            ]
+          }
+        ],
+        "claims": [
+          {
+            "text": "The telemetry failures trace to a conditional IAM binding added during an org-policy/IAM cleanup.",
+            "markers": [],
+            "status": "uncited",
+            "reason": "the statement has no citation",
+            "evidence": null
+          },
+          {
+            "text": "The Jira ticket says the affected observability agents began failing after that cleanup added attribute-based conditionals on service account impersonation roles.",
+            "markers": [
+              1
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "This started after a recent org-policy/IAM cleanup that added attribute-based conditionals on serviceAccount impersonation roles."
+          },
+          {
+            "text": "The broker's impersonation attempt was denied with the message \"Condition 'resource.name.startsWith('projects/_/serviceAccounts/')' not satisfied,\" and the GCP audit log shows the constraint 'iam.allowedPolicyMemberDomains' enforced with a conditional binding on roles/iam.serviceAccountTokenCreator.",
+            "markers": [
+              1
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "IAM DENY response: 'Permission denied. Condition \"resource.name.startsWith('projects/_/serviceAccounts/')\" not satisfied'"
+          },
+          {
+            "text": "The impact was missing metrics and traces for about six Dedicated customers in us-east and eu-west for roughly 36 hours.",
+            "markers": [
+              1
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "Production metrics and traces missing for ~6 Dedicated customers in us-east and eu-west regions for ~36 hours."
+          },
+          {
+            "text": "The passages do not record a confirmed fix.",
+            "markers": [],
+            "status": "no_claim",
+            "reason": "comments on the passages themselves",
+            "evidence": null
+          }
+        ],
+        "verification": {
+          "method": "judge",
+          "model": "claude-haiku-5-5",
+          "statements": 4,
+          "verified": 3,
+          "all_verified": false,
+          "error": null
+        },
+        "document_ids": [
+          "dsid_62ff534dc35a425896b265216f94f69a"
+        ],
+        "usage": {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 8622,
+          "output_tokens": 1251,
+          "cost_usd": 0.001488
+        },
+        "timings_ms": {
+          "retrieval_embed": 7196.4,
+          "retrieval_dense_search": 11732.4,
+          "retrieval_encode": 44.8,
+          "retrieval_bm25_search": 18855.1,
+          "retrieval_fuse": 12.6,
+          "retrieval_rerank": 17170.2,
+          "retrieval_context": 286.0,
+          "retrieval_total": 36411.8,
+          "generation": 4845.4,
+          "verification": 2315.0,
+          "total": 43582.7
+        }
+      }
+    },
+    {
+      "id": "qst_0001",
+      "type": "basic",
+      "question": "What are the default size limits for file uploads and total request size for the new multipart upload support on the OpenAI-compatible API endpoints?",
+      "response": {
+        "query": "What are the default size limits for file uploads and total request size for the new multipart upload support on the OpenAI-compatible API endpoints?",
+        "mode": "hybrid+rerank",
+        "cached": false,
+        "answer": "The documents give two different sets of defaults, from two separate PRs.\n\nThe first PR, which adds multipart/form-data support behind a feature flag, sets the defaults at 10 MiB per file and 50 MiB per request. The second PR also sets a file-size cap of 25 MB, enforced for chunked uploads with a 413 FILE_TOO_LARGE error. Its final release notes state a default file upload cap of 25 MB, configurable, and say nothing about a total request limit. The documents do not say which default is in effect, so I could not confirm the current values. The second PR does not mention a total per-request limit. The first PR also sets a default of 20 parts per request.",
+        "status": "partial",
+        "gaps": [
+          "The documents do not say which default is in effect, so I could not confirm the current values.",
+          "The second PR does not mention a total per-request limit."
+        ],
+        "abstained": false,
+        "abstention": null,
+        "answer_with_markers": "The documents give two different sets of defaults, from two separate PRs.\n\nThe first PR, which adds multipart/form-data support behind a feature flag, sets the defaults at 10 MiB per file and 50 MiB per request [1][3]. The second PR also sets a file-size cap of 25 MB, enforced for chunked uploads with a 413 FILE_TOO_LARGE error [2]. Its final release notes state a default file upload cap of 25 MB, configurable, and say nothing about a total request limit [4]. The documents do not say which default is in effect, so I could not confirm the current values. The second PR does not mention a total per-request limit. The first PR also sets a default of 20 parts per request [3].",
+        "citations": [
+          {
+            "marker": 1,
+            "doc_id": "dsid_ae068ee4aa9640159427cd941bef0238",
+            "title": "add multipart/form-data handling, strict content-type validation, and payload limit enforcement for API tool/file inputs",
+            "source_type": "github",
+            "verified": true,
+            "claims": [
+              1
+            ]
+          },
+          {
+            "marker": 3,
+            "doc_id": "dsid_ae068ee4aa9640159427cd941bef0238",
+            "title": "add multipart/form-data handling, strict content-type validation, and payload limit enforcement for API tool/file inputs",
+            "source_type": "github",
+            "verified": true,
+            "claims": [
+              1,
+              6
+            ]
+          },
+          {
+            "marker": 2,
+            "doc_id": "dsid_1473858d383d48c1890e27312f065388",
+            "title": "Validate multipart boundaries and enforce file-size/content-type limits on OpenAI-compat tool/file endpoints",
+            "source_type": "github",
+            "verified": true,
+            "claims": [
+              2
+            ]
+          },
+          {
+            "marker": 4,
+            "doc_id": "dsid_1473858d383d48c1890e27312f065388",
+            "title": "Validate multipart boundaries and enforce file-size/content-type limits on OpenAI-compat tool/file endpoints",
+            "source_type": "github",
+            "verified": true,
+            "claims": [
+              3
+            ]
+          }
+        ],
+        "claims": [
+          {
+            "text": "The documents give two different sets of defaults, from two separate PRs.",
+            "markers": [],
+            "status": "uncited",
+            "reason": "the statement has no citation",
+            "evidence": null
+          },
+          {
+            "text": "The first PR, which adds multipart/form-data support behind a feature flag, sets the defaults at 10 MiB per file and 50 MiB per request.",
+            "markers": [
+              1,
+              3
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "Default limits: 10MiB per file, 50MiB per request. Feature is behind a feature flag and can be enabled per-tenant."
+          },
+          {
+            "text": "The second PR also sets a file-size cap of 25 MB, enforced for chunked uploads with a 413 FILE_TOO_LARGE error.",
+            "markers": [
+              2
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "For chunked uploads we now apply per-chunk size ceiling and an aggregate max (default 25MB) and return 413 FILE_TOO_LARGE when exceeded."
+          },
+          {
+            "text": "Its final release notes state a default file upload cap of 25 MB, configurable, and say nothing about a total request limit.",
+            "markers": [
+              4
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "Default file upload size cap of 25MB with 413 FILE_TOO_LARGE error for overage (configurable)."
+          },
+          {
+            "text": "The documents do not say which default is in effect, so I could not confirm the current values.",
+            "markers": [],
+            "status": "no_claim",
+            "reason": "says the documents lack something",
+            "evidence": null
+          },
+          {
+            "text": "The second PR does not mention a total per-request limit.",
+            "markers": [],
+            "status": "no_claim",
+            "reason": "says the documents lack something",
+            "evidence": null
+          },
+          {
+            "text": "The first PR also sets a default of 20 parts per request.",
+            "markers": [
+              3
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "max_parts_count (default 20)"
+          }
+        ],
+        "verification": {
+          "method": "judge",
+          "model": "claude-haiku-5-5",
+          "statements": 5,
+          "verified": 4,
+          "all_verified": false,
+          "error": null
+        },
+        "document_ids": [
+          "dsid_ae068ee4aa9640159427cd941bef0238",
+          "dsid_1473858d383d48c1890e27312f065388"
+        ],
+        "usage": {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6985,
+          "output_tokens": 1131,
+          "cost_usd": 0.001264
+        },
+        "timings_ms": {
+          "retrieval_embed": 14017.3,
+          "retrieval_dense_search": 7596.2,
+          "retrieval_encode": 196.1,
+          "retrieval_bm25_search": 15742.3,
+          "retrieval_fuse": 5.3,
+          "retrieval_rerank": 6917.5,
+          "retrieval_context": 82.9,
+          "retrieval_total": 28622.1,
+          "generation": 3765.9,
+          "verification": 2423.6,
+          "total": 34821.1
+        }
+      }
+    },
+    {
+      "id": "qst_0483",
+      "type": "info_not_found",
+      "question": "For the admin activity chronicle's daily Merkle-root anchoring, which public blockchain network do we anchor to and what smart contract address is used, and how should an auditor verify the anchor end-to-end?",
+      "response": {
+        "query": "For the admin activity chronicle's daily Merkle-root anchoring, which public blockchain network do we anchor to and what smart contract address is used, and how should an auditor verify the anchor end-to-end?",
+        "mode": "hybrid+rerank",
+        "cached": false,
+        "answer": "The documents do not name a public blockchain network or a smart contract address. Public anchoring is optional and is flagged as future work, and the anchoring worker only has an \"optional public-anchor toggle\". The requirement is that daily per-region Merkle roots are anchored to an HSM-backed signing key and optionally to a public blockchain. As of 2026-03-09, the Merkle root job was only a single-region proof of concept signing with staging KMS, and HSM integration for production was still needed.\n\nFor verification, the documents describe the signed-manifest flow but not a blockchain check. A `verify_manifest(manifest, signature)` endpoint is meant to validate the hash chain and residency. The manifest carries event file checksums, the Merkle root, the HSM signature, and region and residency tags, and it ships with detached.sig proof files and an attest.txt for auditors. An auditor could therefore check the bundle's hashes, the Merkle root, and the HSM signature. Checking a public anchor would require details that the documents do not provide.",
+        "status": "partial",
+        "gaps": [
+          "The documents do not name a public blockchain network or a smart contract address.",
+          "Checking a public anchor would require details that the documents do not provide."
+        ],
+        "abstained": false,
+        "abstention": null,
+        "answer_with_markers": "The documents do not name a public blockchain network or a smart contract address. Public anchoring is optional and is flagged as future work [4], and the anchoring worker only has an \"optional public-anchor toggle\" [1]. The requirement is that daily per-region Merkle roots are anchored to an HSM-backed signing key and optionally to a public blockchain [2]. As of 2026-03-09, the Merkle root job was only a single-region proof of concept signing with staging KMS, and HSM integration for production was still needed [1].\n\nFor verification, the documents describe the signed-manifest flow but not a blockchain check. A `verify_manifest(manifest, signature)` endpoint is meant to validate the hash chain and residency [2][1]. The manifest carries event file checksums, the Merkle root, the HSM signature, and region and residency tags, and it ships with detached .sig proof files and an attest.txt for auditors [4]. An auditor could therefore check the bundle's hashes, the Merkle root, and the HSM signature. Checking a public anchor would require details that the documents do not provide.",
+        "citations": [
+          {
+            "marker": 4,
+            "doc_id": "dsid_91518ef3144e41d08e62832a2ccd0096",
+            "title": "Audit Orbit: Sealed Evidence Broker for Admin Activity with Residency & Retention Controls",
+            "source_type": "linear",
+            "verified": false,
+            "claims": [
+              1,
+              6
+            ]
+          },
+          {
+            "marker": 1,
+            "doc_id": "dsid_c58957b61e9a4c61825562b4e424aed7",
+            "title": "Admin activity chronicle and immutable-hash anchoring for audit evidence",
+            "source_type": "linear",
+            "verified": false,
+            "claims": [
+              1,
+              3,
+              5
+            ]
+          },
+          {
+            "marker": 2,
+            "doc_id": "dsid_c58957b61e9a4c61825562b4e424aed7",
+            "title": "Admin activity chronicle and immutable-hash anchoring for audit evidence",
+            "source_type": "linear",
+            "verified": true,
+            "claims": [
+              2,
+              5
+            ]
+          }
+        ],
+        "claims": [
+          {
+            "text": "The documents do not name a public blockchain network or a smart contract address.",
+            "markers": [],
+            "status": "no_claim",
+            "reason": "says the documents lack something",
+            "evidence": null
+          },
+          {
+            "text": "Public anchoring is optional and is flagged as future work, and the anchoring worker only has an \"optional public-anchor toggle\".",
+            "markers": [
+              4,
+              1
+            ],
+            "status": "partially_supported",
+            "reason": "the cited passages support only part of it",
+            "evidence": "optional public anchoring (blockchain) flagged as future work"
+          },
+          {
+            "text": "The requirement is that daily per-region Merkle roots are anchored to an HSM-backed signing key and optionally to a public blockchain.",
+            "markers": [
+              2
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "Each evidence blob is cryptographically hashed; daily Merkle roots are computed per-region and anchored to a long-lived signing key (HSM-backed) and optionally anchored to a public blockchain anchor for non-repudiation"
+          },
+          {
+            "text": "As of 2026-03-09, the Merkle root job was only a single-region proof of concept signing with staging KMS, and HSM integration for production was still needed.",
+            "markers": [
+              1
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "2026-03-09: Merkle root job PoC created for a single region; integrated with staging KMS for signing. Need HSM integration for production (LZ)"
+          },
+          {
+            "text": "For verification, the documents describe the signed-manifest flow but not a blockchain check.",
+            "markers": [],
+            "status": "uncited",
+            "reason": "the statement has no citation",
+            "evidence": null
+          },
+          {
+            "text": "A `verify_manifest(manifest, signature)` endpoint is meant to validate the hash chain and residency.",
+            "markers": [
+              2,
+              1
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "(2) verify_manifest(manifest, signature) that validates hash chain and residency"
+          },
+          {
+            "text": "The manifest carries event file checksums, the Merkle root, the HSM signature, and region and residency tags, and it ships with detached.sig proof files and an attest.txt for auditors.",
+            "markers": [
+              4
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "Evidence bundle format: newline-delimited JSON events + daily manifest (manifest.json) containing event file checksums, Merkle root, HSM signature, region and residency tags. Bundle packaging: tar.gz along with detached proof files (.sig) and a human-readable attest.txt for auditors."
+          },
+          {
+            "text": "An auditor could therefore check the bundle's hashes, the Merkle root, and the HSM signature.",
+            "markers": [],
+            "status": "uncited",
+            "reason": "the statement has no citation",
+            "evidence": null
+          },
+          {
+            "text": "Checking a public anchor would require details that the documents do not provide.",
+            "markers": [],
+            "status": "no_claim",
+            "reason": "says the documents lack something",
+            "evidence": null
+          }
+        ],
+        "verification": {
+          "method": "judge",
+          "model": "claude-haiku-5-5",
+          "statements": 7,
+          "verified": 4,
+          "all_verified": false,
+          "error": null
+        },
+        "document_ids": [
+          "dsid_91518ef3144e41d08e62832a2ccd0096",
+          "dsid_c58957b61e9a4c61825562b4e424aed7"
+        ],
+        "usage": {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 8574,
+          "output_tokens": 2116,
+          "cost_usd": 0.001915
+        },
+        "timings_ms": {
+          "retrieval_embed": 6729.8,
+          "retrieval_dense_search": 9309.9,
+          "retrieval_encode": 24.2,
+          "retrieval_bm25_search": 8983.3,
+          "retrieval_fuse": 2.4,
+          "retrieval_rerank": 8954.7,
+          "retrieval_context": 79.1,
+          "retrieval_total": 25076.4,
+          "generation": 4150.8,
+          "verification": 5058.1,
+          "total": 34290.2
+        }
+      }
+    },
+    {
+      "id": "qst_0471",
+      "type": "high_level",
+      "question": "What is Redwood Inference's mission statement?",
+      "response": {
+        "query": "What is Redwood Inference's mission statement?",
+        "mode": "hybrid+rerank",
+        "cached": false,
+        "answer": "The documents don't give a single official mission statement. Five passages each offer one, and they share the same theme: making LLM inference predictable and affordable so engineering teams can ship features. The first is \"Enable engineering teams to ship LLM-powered experiences with the economics and reliability they expect from modern cloud services\". Another is \"Make inference a predictable, auditable, and economical substrate for product teams so that feature velocity is measured in shipped experiences, not model maintenance\". A third is \"Make high-performance, reliable LLM inference accessible to every engineering team by treating inference as an operational contract, not a research prototype\". A fourth is \"Make inference predictable, affordable, and operable so engineering teams can ship features rather than fight infrastructure\". The last is \"Make high-performance LLM inference reliably predictable and economically accessible so engineering teams can ship features with confidence, not guesswork\".",
+        "status": "partial",
+        "gaps": [
+          "The documents don't give a single official mission statement."
+        ],
+        "abstained": false,
+        "abstention": null,
+        "answer_with_markers": "The documents don't give a single official mission statement. Five passages each offer one, and they share the same theme: making LLM inference predictable and affordable so engineering teams can ship features. The first is \"Enable engineering teams to ship LLM-powered experiences with the economics and reliability they expect from modern cloud services\" [1]. Another is \"Make inference a predictable, auditable, and economical substrate for product teams so that feature velocity is measured in shipped experiences, not model maintenance\" [2]. A third is \"Make high-performance, reliable LLM inference accessible to every engineering team by treating inference as an operational contract, not a research prototype\" [3]. A fourth is \"Make inference predictable, affordable, and operable so engineering teams can ship features rather than fight infrastructure\" [4]. The last is \"Make high-performance LLM inference reliably predictable and economically accessible so engineering teams can ship features with confidence, not guesswork\" [5].",
+        "citations": [
+          {
+            "marker": 1,
+            "doc_id": "dsid_3967de651056448180075817764805b6",
+            "title": "Inference Contract Narrative",
+            "source_type": "google_drive",
+            "verified": true,
+            "claims": [
+              2
+            ]
+          },
+          {
+            "marker": 2,
+            "doc_id": "dsid_860b69389fd249c68f087fad9c4e2499",
+            "title": "Inference as a Production Fabric — one-pager",
+            "source_type": "google_drive",
+            "verified": true,
+            "claims": [
+              3
+            ]
+          },
+          {
+            "marker": 3,
+            "doc_id": "dsid_a8107e6c2a36463fa54e4e9a3267c048",
+            "title": "Practical Inference Commitment — Messaging Brief",
+            "source_type": "google_drive",
+            "verified": true,
+            "claims": [
+              4
+            ]
+          },
+          {
+            "marker": 4,
+            "doc_id": "dsid_ee9eeabb3e0244048b90e1f8d694e585",
+            "title": "Real-world Inference: Mission & Positioning Brief",
+            "source_type": "google_drive",
+            "verified": true,
+            "claims": [
+              5
+            ]
+          },
+          {
+            "marker": 5,
+            "doc_id": "dsid_523e6d792489442992217b11d06fe3e9",
+            "title": "Performance to Assurance: One‑Pager for Core Positioning",
+            "source_type": "google_drive",
+            "verified": true,
+            "claims": [
+              6
+            ]
+          }
+        ],
+        "claims": [
+          {
+            "text": "The documents don't give a single official mission statement.",
+            "markers": [],
+            "status": "no_claim",
+            "reason": "says the documents lack something",
+            "evidence": null
+          },
+          {
+            "text": "Five passages each offer one, and they share the same theme: making LLM inference predictable and affordable so engineering teams can ship features.",
+            "markers": [],
+            "status": "uncited",
+            "reason": "the statement has no citation",
+            "evidence": null
+          },
+          {
+            "text": "The first is \"Enable engineering teams to ship LLM-powered experiences with the economics and reliability they expect from modern cloud services\".",
+            "markers": [
+              1
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "Enable engineering teams to ship LLM-powered experiences with the economics and reliability they expect from modern cloud services."
+          },
+          {
+            "text": "Another is \"Make inference a predictable, auditable, and economical substrate for product teams so that feature velocity is measured in shipped experiences, not model maintenance\".",
+            "markers": [
+              2
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "Make inference a predictable, auditable, and economical substrate for product teams so that feature velocity is measured in shipped experiences, not model maintenance."
+          },
+          {
+            "text": "A third is \"Make high-performance, reliable LLM inference accessible to every engineering team by treating inference as an operational contract, not a research prototype\".",
+            "markers": [
+              3
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "Make high-performance, reliable LLM inference accessible to every engineering team by treating inference as an operational contract, not a research prototype."
+          },
+          {
+            "text": "A fourth is \"Make inference predictable, affordable, and operable so engineering teams can ship features rather than fight infrastructure\".",
+            "markers": [
+              4
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "Make inference predictable, affordable, and operable so engineering teams can ship features rather than fight infrastructure."
+          },
+          {
+            "text": "The last is \"Make high-performance LLM inference reliably predictable and economically accessible so engineering teams can ship features with confidence, not guesswork\".",
+            "markers": [
+              5
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "Make high-performance LLM inference reliably predictable and economically accessible so engineering teams can ship features with confidence, not guesswork."
+          }
+        ],
+        "verification": {
+          "method": "judge",
+          "model": "claude-haiku-5-5",
+          "statements": 6,
+          "verified": 5,
+          "all_verified": false,
+          "error": null
+        },
+        "document_ids": [
+          "dsid_3967de651056448180075817764805b6",
+          "dsid_860b69389fd249c68f087fad9c4e2499",
+          "dsid_a8107e6c2a36463fa54e4e9a3267c048",
+          "dsid_ee9eeabb3e0244048b90e1f8d694e585",
+          "dsid_523e6d792489442992217b11d06fe3e9"
+        ],
+        "usage": {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 9810,
+          "output_tokens": 1587,
+          "cost_usd": 0.001775
+        },
+        "timings_ms": {
+          "retrieval_embed": 4628.3,
+          "retrieval_dense_search": 7444.9,
+          "retrieval_encode": 26.7,
+          "retrieval_bm25_search": 3120.5,
+          "retrieval_fuse": 2.4,
+          "retrieval_rerank": 4502.2,
+          "retrieval_context": 54.2,
+          "retrieval_total": 16632.5,
+          "generation": 4036.6,
+          "verification": 3427.9,
+          "total": 24101.2
+        }
+      }
+    },
+    {
+      "id": "qst_0341",
+      "type": "project_related",
+      "question": "For the Proxima Bank 429 spike after priority routing rollout, what caused the throttling and what temporary policy exception did we apply, and how do we verify it is not burning the enterprise route SLOs?",
+      "response": {
+        "query": "For the Proxima Bank 429 spike after priority routing rollout, what caused the throttling and what temporary policy exception did we apply, and how do we verify it is not burning the enterprise route SLOs?",
+        "mode": "hybrid+rerank",
+        "cached": false,
+        "answer": "**Cause:** The 429s were mainly overload-protection admission control, not billing quota. Protection was active on the chat and embeddings route groups in us-east during a regional pressure event, with elevated scheduler lag and queue depth on shared pools. Proxima's enterprise route budget was clipped by a conservative burst multiplier in the route-group defaults, so combined chat and embeddings bursts exceeded it (deny reason `admission_over_budget`). A smaller share of the 429s were `quota_exceeded`, caused by the embeddings daily quota window nearing its cap.\n\n**Exception applied:** On 2026-01-21, SRE approved a time-boxed increase to the burst multiplier for PROXIMA-ENT-014 on chat and embeddings in us-east only, with a 14-day expiry. Platform applied it as a policy override and recorded it in the audit log with the expiry date and rollback plan.\n\n**SLO safeguards:** The exception rolls back automatically if enterprise p99 latency burn exceeds a threshold or if shed rate is sustained above 2%. A monitoring annotation and an incident-bot notice rule were added. The passages do not give the latency-burn threshold. Verification relied on the internal debug endpoint (PR-27477), which shows the higher burst budget in admission decisions. The documents do not report measured enterprise p99 or shed-rate results after the exception. The only later data point is that the customer's 429 rate fell to about 0.8% during a smaller spike on 2026-01-22.",
+        "status": "partial",
+        "gaps": [
+          "The passages do not give the latency-burn threshold."
+        ],
+        "abstained": false,
+        "abstention": null,
+        "answer_with_markers": "**Cause:** The 429s were mainly overload-protection admission control, not billing quota. Protection was active on the chat and embeddings route groups in us-east during a regional pressure event, with elevated scheduler lag and queue depth on shared pools [2][3]. Proxima's enterprise route budget was clipped by a conservative burst multiplier in the route-group defaults, so combined chat and embeddings bursts exceeded it (deny reason `admission_over_budget`) [2]. A smaller share of the 429s were `quota_exceeded`, caused by the embeddings daily quota window nearing its cap [3].\n\n**Exception applied:** On 2026-01-21, SRE approved a time-boxed increase to the burst multiplier for PROXIMA-ENT-014 on chat and embeddings in us-east only, with a 14-day expiry [3]. Platform applied it as a policy override and recorded it in the audit log with the expiry date and rollback plan [3].\n\n**SLO safeguards:** The exception rolls back automatically if enterprise p99 latency burn exceeds a threshold or if shed rate is sustained above 2% [3]. A monitoring annotation and an incident-bot notice rule were added [3]. The passages do not give the latency-burn threshold. Verification relied on the internal debug endpoint (PR-27477), which shows the higher burst budget in admission decisions [3]. The documents do not report measured enterprise p99 or shed-rate results after the exception. The only later data point is that the customer's 429 rate fell to about 0.8% during a smaller spike on 2026-01-22 [3].",
+        "citations": [
+          {
+            "marker": 2,
+            "doc_id": "dsid_1980f45c3fb4455f943a2b030892ae90",
+            "title": "Proxima Bank: unexpected spike in 429s after enterprise priority routing rollout (chat + embeddings)",
+            "source_type": "jira",
+            "verified": true,
+            "claims": [
+              1,
+              2
+            ]
+          },
+          {
+            "marker": 3,
+            "doc_id": "dsid_1980f45c3fb4455f943a2b030892ae90",
+            "title": "Proxima Bank: unexpected spike in 429s after enterprise priority routing rollout (chat + embeddings)",
+            "source_type": "jira",
+            "verified": false,
+            "claims": [
+              1,
+              3,
+              4,
+              5,
+              6,
+              7,
+              9,
+              11
+            ]
+          }
+        ],
+        "claims": [
+          {
+            "text": "**Cause:** The 429s were mainly overload-protection admission control, not billing quota.",
+            "markers": [],
+            "status": "uncited",
+            "reason": "the statement has no citation",
+            "evidence": null
+          },
+          {
+            "text": "Protection was active on the chat and embeddings route groups in us-east during a regional pressure event, with elevated scheduler lag and queue depth on shared pools.",
+            "markers": [
+              2,
+              3
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "overload protection activated for route-group \"chat\" + \"embeddings\" during a concurrent regional pressure event."
+          },
+          {
+            "text": "Proxima's enterprise route budget was clipped by a conservative burst multiplier in the route-group defaults, so combined chat and embeddings bursts exceeded it (deny reason `admission_over_budget`).",
+            "markers": [
+              2
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "PROXIMA-ENT-014 is in enterprise priority class, but route-group defaults include a conservative burst multiplier. Their combined chat+embeddings bursts can exceed the enterprise route budget during pressure windows"
+          },
+          {
+            "text": "A smaller share of the 429s were `quota_exceeded`, caused by the embeddings daily quota window nearing its cap.",
+            "markers": [
+              3
+            ],
+            "status": "partially_supported",
+            "reason": "the cited passages support only part of it",
+            "evidence": "Noted some quota_exceeded events are due to embeddings daily quota window nearing cap; separate from overload."
+          },
+          {
+            "text": "**Exception applied:** On 2026-01-21, SRE approved a time-boxed increase to the burst multiplier for PROXIMA-ENT-014 on chat and embeddings in us-east only, with a 14-day expiry.",
+            "markers": [
+              3
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "Approved a guarded exception: increase burst multiplier for PROXIMA-ENT-014 on chat+embeddings in us-east only, 14-day expiry"
+          },
+          {
+            "text": "Platform applied it as a policy override and recorded it in the audit log with the expiry date and rollback plan.",
+            "markers": [
+              3
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "Applied policy override (time-boxed) and verified via internal debug endpoint (PR-27477) that admission decisions now show higher burst budget for Proxima. Recorded change in audit log with expiry date and rollback plan."
+          },
+          {
+            "text": "**SLO safeguards:** The exception rolls back automatically if enterprise p99 latency burn exceeds a threshold or if shed rate is sustained above 2%.",
+            "markers": [
+              3
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "automatic rollback if enterprise p99 latency burn > threshold or shed rate sustained > 2%."
+          },
+          {
+            "text": "A monitoring annotation and an incident-bot notice rule were added.",
+            "markers": [
+              3
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "Added monitoring annotation + incident-bot notice rule."
+          },
+          {
+            "text": "The passages do not give the latency-burn threshold.",
+            "markers": [],
+            "status": "no_claim",
+            "reason": "says the documents lack something",
+            "evidence": null
+          },
+          {
+            "text": "Verification relied on the internal debug endpoint (PR-27477), which shows the higher burst budget in admission decisions.",
+            "markers": [
+              3
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "verified via internal debug endpoint (PR-27477) that admission decisions now show higher burst budget for Proxima."
+          },
+          {
+            "text": "The documents do not report measured enterprise p99 or shed-rate results after the exception.",
+            "markers": [],
+            "status": "no_claim",
+            "reason": "comments on the passages themselves",
+            "evidence": null
+          },
+          {
+            "text": "The only later data point is that the customer's 429 rate fell to about 0.8% during a smaller spike on 2026-01-22.",
+            "markers": [
+              3
+            ],
+            "status": "verified",
+            "reason": null,
+            "evidence": "customer reports 429 rate down to ~0.8% during a smaller spike"
+          }
+        ],
+        "verification": {
+          "method": "judge",
+          "model": "claude-haiku-5-5",
+          "statements": 10,
+          "verified": 8,
+          "all_verified": false,
+          "error": null
+        },
+        "document_ids": [
+          "dsid_1980f45c3fb4455f943a2b030892ae90"
+        ],
+        "usage": {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 14716,
+          "output_tokens": 2717,
+          "cost_usd": 0.00283
+        },
+        "timings_ms": {
+          "retrieval_embed": 7493.6,
+          "retrieval_dense_search": 10322.4,
+          "retrieval_encode": 49.3,
+          "retrieval_bm25_search": 10023.1,
+          "retrieval_fuse": 8.0,
+          "retrieval_rerank": 8356.4,
+          "retrieval_context": 49.5,
+          "retrieval_total": 26234.3,
+          "generation": 5254.8,
+          "verification": 6921.7,
+          "total": 38415.7
+        }
+      }
+    }
+  ]
+}

@@ -166,6 +166,27 @@ What the numbers say:
   caches, finished all twelve: cold-versus-warm differences on this machine are large, so read
   these as the scale of the problem, not as a benchmark.
 
+## The public copy of the demo
+
+GitHub Pages serves files and runs nothing, and the live service needs the 35 GB index and a model
+key, so the demo published at [https://uningenier0.github.io/hybrid-rag-production-engine/](https://uningenier0.github.io/hybrid-rag-production-engine/) is a **recording**: the same page, drawn by the same
+code as `/demo` (`src/rag_engine/api/demo_page.py`), replaying real `/v1/query` responses. The page
+says so, names the small CPU reranker the recording used and does not call any server.
+
+- `scripts/record_examples.py` sends chosen benchmark questions to a running service (cache off,
+  citation check on) and stores the responses untouched in `site/examples.json`. Nothing in that
+  file is written by hand; re-record it after a change to the pipeline.
+- `scripts/build_site.py` turns the recording and the committed benchmark and abstention reports
+  into one `index.html`, so the numbers on the page are the repository's. Its content security
+  policy is a `<meta>` tag that allows the page's one script and style by hash (Pages cannot send
+  headers), and a test recomputes the hashes from the rendered page.
+- `.github/workflows/pages.yml` builds and deploys it when any of those files change on `main`
+  (or by hand from the Actions tab). A test checks that each recorded response still validates
+  against the API's response model, so the recording cannot drift from the schema unnoticed.
+- The recorded examples are six benchmark questions of different kinds, the weakest category
+  among them. The page does not claim a recorded answer is correct: only the benchmark's judge
+  can, and the page links to the scores.
+
 ## What this does not do
 
 - **No TLS.** Terminate it in front of the API (a reverse proxy or the platform's load balancer);

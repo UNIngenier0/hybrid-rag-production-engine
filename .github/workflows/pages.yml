@@ -1,0 +1,55 @@
+name: Pages
+
+# Publishes the recorded copy of the demo (site/examples.json, drawn by src/rag_engine/site_page.py)
+# on GitHub Pages. The live service cannot run there: it needs the index and a model key.
+on:
+  push:
+    branches: [main]
+    paths:
+      - site/**
+      - src/rag_engine/site_page.py
+      - src/rag_engine/api/demo_page.py
+      - scripts/build_site.py
+      - eval/reports/full-benchmark.json
+      - eval/reports/abstention-scores.json
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time, and a running one is allowed to finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build the site
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --locked
+      - name: Build the page from the recorded responses and the published reports
+        run: uv run python scripts/build_site.py --out _site
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

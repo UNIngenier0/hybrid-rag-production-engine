@@ -36,3 +36,6 @@ eval/runs/e2e-*/
 eval/runs/e2e-comparison.*
 # The metering proxy's log, kept next to each usage report
 eval/runs/*/*.proxy.log
+
+# Built by scripts/build_site.py for GitHub Pages
+_site/

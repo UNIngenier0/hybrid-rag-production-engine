@@ -8,14 +8,9 @@ this page's own script and style, so a hostile passage in the corpus cannot run 
 
 import secrets
 
-_PAGE = """<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hybrid RAG demo</title>
-<style nonce="__NONCE__">
-:root {
+# The pieces are shared with the recorded copy of this page (site_page.py), which the project's
+# GitHub Pages site serves: the look and the drawing code are written once.
+STYLE = """:root {
   --bg: #fafaf7; --fg: #1c1d1f; --muted: #62666d; --line: #dcdcd4; --card: #ffffff;
   --accent: #1f5f8b; --ok: #1d7a46; --warn: #946200; --bad: #a3322b;
   --ok-bg: #e4f3ea; --warn-bg: #fbf0d4; --bad-bg: #f8e3e1; --neutral-bg: #ececE6;
@@ -71,44 +66,9 @@ li { margin: .35rem 0; }
 .stage .num { text-align: right; color: var(--muted); }
 .error { color: var(--bad); }
 .hit { outline: 2px solid var(--accent); border-radius: 4px; }
-</style>
-</head>
-<body>
-<main>
-  <h1>Hybrid RAG demo</h1>
-  <p class="lead">Ask the indexed company documents a question. Every statement of the answer is
-  checked against the passage it cites.</p>
+"""
 
-  <form id="form">
-    <label for="question">Question</label>
-    <textarea id="question" maxlength="2000" required
-      placeholder="What is the default grace period of the tool-call batching invoker?"></textarea>
-    <div class="row">
-      <div><label for="key">API key (if the server asks for one)</label>
-        <input id="key" type="password" autocomplete="off" spellcheck="false"></div>
-      <div><label for="mode">Retrieval</label>
-        <select id="mode">
-          <option value="">server default</option>
-          <option value="hybrid+rerank">hybrid + rerank</option>
-          <option value="hybrid">hybrid</option>
-          <option value="dense">dense</option>
-          <option value="bm25">BM25</option>
-        </select></div>
-      <div><label for="chunks">Passages</label>
-        <input id="chunks" type="number" min="1" max="10" placeholder="5"></div>
-      <div class="check"><input id="verify" type="checkbox" checked>
-        <label for="verify">Check citations</label></div>
-      <div class="check"><input id="fresh" type="checkbox">
-        <label for="fresh">Skip the cache</label></div>
-    </div>
-    <button id="ask" type="submit">Ask</button>
-    <span id="progress" class="muted" role="status"></span>
-  </form>
-
-  <section id="result" hidden aria-live="polite"></section>
-</main>
-<script nonce="__NONCE__">
-"use strict";
+RENDER_JS = """"use strict";
 const $ = (id) => document.getElementById(id);
 const STATUS_CLASS = {
   verified: "ok", no_claim: "", partially_supported: "warn", uncited: "warn",
@@ -239,8 +199,44 @@ function highlight(marker) {
   const target = document.getElementById("source-" + marker);
   if (target) { target.classList.add("hit"); target.scrollIntoView({ block: "center" }); }
 }
+"""
 
-const REASONS = {
+_LIVE_MAIN = """<main>
+  <h1>Hybrid RAG demo</h1>
+  <p class="lead">Ask the indexed company documents a question. Every statement of the answer is
+  checked against the passage it cites.</p>
+
+  <form id="form">
+    <label for="question">Question</label>
+    <textarea id="question" maxlength="2000" required
+      placeholder="What is the default grace period of the tool-call batching invoker?"></textarea>
+    <div class="row">
+      <div><label for="key">API key (if the server asks for one)</label>
+        <input id="key" type="password" autocomplete="off" spellcheck="false"></div>
+      <div><label for="mode">Retrieval</label>
+        <select id="mode">
+          <option value="">server default</option>
+          <option value="hybrid+rerank">hybrid + rerank</option>
+          <option value="hybrid">hybrid</option>
+          <option value="dense">dense</option>
+          <option value="bm25">BM25</option>
+        </select></div>
+      <div><label for="chunks">Passages</label>
+        <input id="chunks" type="number" min="1" max="10" placeholder="5"></div>
+      <div class="check"><input id="verify" type="checkbox" checked>
+        <label for="verify">Check citations</label></div>
+      <div class="check"><input id="fresh" type="checkbox">
+        <label for="fresh">Skip the cache</label></div>
+    </div>
+    <button id="ask" type="submit">Ask</button>
+    <span id="progress" class="muted" role="status"></span>
+  </form>
+
+  <section id="result" hidden aria-live="polite"></section>
+</main>
+"""
+
+_LIVE_JS = """const REASONS = {
   401: "The server asks for an API key. Enter one above.",
   429: "Too many requests. Try again in a moment.",
   502: "The language model failed. Try again.",
@@ -290,7 +286,21 @@ $("form").addEventListener("submit", async (event) => {
     result.hidden = false;
   }
 });
-</script>
+"""
+
+_SHELL = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hybrid RAG demo</title>
+<style nonce="__NONCE__">
+__STYLE__</style>
+</head>
+<body>
+__MAIN__
+<script nonce="__NONCE__">
+__SCRIPT__</script>
 </body>
 </html>
 """
@@ -306,4 +316,10 @@ def render_demo() -> tuple[str, str]:
         "connect-src 'self'; "
         "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
     )
-    return _PAGE.replace("__NONCE__", nonce), policy
+    page = (
+        _SHELL.replace("__STYLE__", STYLE)
+        .replace("__MAIN__", _LIVE_MAIN)
+        .replace("__SCRIPT__", RENDER_JS + "\n" + _LIVE_JS)
+        .replace("__NONCE__", nonce)
+    )
+    return page, policy
