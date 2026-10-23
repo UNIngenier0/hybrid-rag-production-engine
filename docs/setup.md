@@ -226,6 +226,14 @@ uv run python -m rag_engine.evaluation.cli gate # the regression gate CI runs
 uv run pytest -m integration                    # needs the Compose stack running
 ```
 
+## Beyond the index: what the evaluation needs
+
+The index is not the only thing git does not carry. To re-run the evaluation on a new machine you also
+need `eval/cache/` (the stored candidates and reranker scores, 61 MB), the benchmark's own evaluator and
+documents (`scripts/benchmark/setup.sh --volume`, about 4 GB), a Kaggle login for the free GPU, and your
+own Anthropic key in `.env`. [phase-8-iterative-rag.md](phase-8-iterative-rag.md#42-what-to-copy-from-the-original-machine)
+lists what to copy and the commands, step by step.
+
 ## Troubleshooting
 
 | Symptom | Likely cause and fix |
