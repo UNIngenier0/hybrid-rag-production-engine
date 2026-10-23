@@ -1,0 +1,23 @@
+{
+  "benchmark": "EnterpriseRAG-Bench",
+  "questions": 500,
+  "answers_sha256": "85ba6c992d7a6bafd2bc65d94e8778e110792b88bc00c50af0a00e4305e9c1f3",
+  "system": {
+    "model": "claude-haiku-5-5",
+    "mode": "hybrid+rerank",
+    "passages": 5,
+    "retrieval": "dense + BM25, reciprocal rank fusion, cross-encoder reranking",
+    "embedding_model": "Snowflake/snowflake-arctic-embed-m-v1.5",
+    "reranker": "BAAI/bge-reranker-v2-m3",
+    "index_collection": "chunks_v1"
+  },
+  "judge": "claude-haiku-5-5",
+  "overall": {
+    "questions": 500,
+    "correct_pct": 55.4,
+    "completeness_pct": 61.36,
+    "combined": 50.97,
+    "document_recall_pct": 68.01,
+    "invalid_extra_docs": 1.28
+  }
+}

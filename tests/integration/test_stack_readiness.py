@@ -43,3 +43,11 @@ def test_requests_to_the_api_are_authenticated_when_keys_are_configured() -> Non
     assert response.status_code in {200, 401, 503}
     if response.status_code == 401:
         assert response.headers["www-authenticate"] == "Bearer"
+
+
+def test_the_demo_page_is_served() -> None:
+    response = httpx.get(f"{API_URL}/demo", timeout=5)
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert "default-src 'none'" in response.headers["content-security-policy"]

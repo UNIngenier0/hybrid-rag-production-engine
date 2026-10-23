@@ -151,8 +151,8 @@ What the numbers say:
 - **Where an answer's time goes** (the mean of the 18 answers, read from `rag_query_stage_seconds`):
   33.7 s in total, of which retrieval 25.9 s (query embedding 6.7 s, dense search 10.8 s and BM25
   search 6.8 s in parallel, CPU reranking 8.3 s), writing the answer 4.0 s and checking its
-  citations 3.7 s. Retrieval is three quarters of it. On a GPU the cross-encoder takes tens of
-  milliseconds for the 30 passages instead of 8 s ([evaluation.md](evaluation.md#reranker-cost)), and
+  citations 3.7 s. Retrieval is three quarters of it. On a GPU the cross-encoder takes between 46 and
+  554 milliseconds for the 30 passages, depending on the model, instead of 8 s ([evaluation.md](evaluation.md#reranker-cost)), and
   a machine with enough memory for the index would take most of the search time away; neither is
   measured here.
 - **An answer costs $0.0016 on average** ($0.029 for the 18, from `rag_query_cost_usd_total`), and

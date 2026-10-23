@@ -25,6 +25,12 @@ from rag_engine.evaluation.abstention import AbstentionReport, Evidence, build_r
 from rag_engine.evaluation.audit import audit_runs
 from rag_engine.evaluation.candidates import QuestionCandidates
 from rag_engine.evaluation.compare import compare, load_outcomes
+from rag_engine.evaluation.fullbench import (
+    DEFAULT_RUNS,
+    SubmissionError,
+    submission_rows,
+)
+from rag_engine.evaluation.fullbench import build_report as build_full_report
 from rag_engine.evaluation.metrics import (
     QuestionScore,
     distinct_documents,
@@ -479,3 +485,41 @@ def check_abstention_report(
     if json.loads(report.read_text(encoding="utf-8")) != current:
         return [f"{report} does not match the fixture and the runs: regenerate it"]
     return []
+
+
+COMMITTED_FULL_REPORT = Path("eval/reports/full-benchmark.json")
+COMMITTED_SUBMISSION = Path("eval/submission")
+
+
+def check_full_benchmark(
+    fixture: Path,
+    report: Path = COMMITTED_FULL_REPORT,
+    submission: Path = COMMITTED_SUBMISSION,
+    runs: Sequence[Path] = DEFAULT_RUNS,
+) -> list[str]:
+    """Problems with the committed whole-benchmark score and submission file: both must be what
+    the committed runs give today, and the submission must hold every benchmark question once."""
+    if not report.exists():
+        return []  # not published yet
+    _, cases = load_fixture(fixture)
+    expected = [case.question.question_id for case in cases]
+    try:
+        current = build_full_report(runs, COMMITTED_JUDGE, expected)
+        rows = submission_rows(runs)
+    except (SubmissionError, FileNotFoundError) as error:
+        return [f"the whole-benchmark numbers cannot be rebuilt: {error}"]
+    problems = []
+    if json.loads(report.read_text(encoding="utf-8")) != json.loads(json.dumps(current)):
+        problems.append(f"{report} does not match the committed runs: regenerate it")
+    answers = submission / "answers.jsonl"
+    manifest = submission / "manifest.json"
+    if not answers.exists() or not manifest.exists():
+        problems.append(f"{submission} lacks answers.jsonl or manifest.json")
+    else:
+        text = "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows)
+        if answers.read_text(encoding="utf-8") != text:
+            problems.append(f"{answers} does not hold the committed runs' answers")
+        recorded = json.loads(manifest.read_text(encoding="utf-8")).get("answers_sha256")
+        if recorded != hashlib.sha256(answers.read_bytes()).hexdigest():
+            problems.append(f"{manifest} records a different checksum than {answers}")
+    return problems

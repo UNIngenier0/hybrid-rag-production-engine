@@ -13,6 +13,7 @@ from rag_engine.evaluation.gate import (
     build_fixture,
     check_abstention_report,
     check_answer_report,
+    check_full_benchmark,
     load_fixture,
     make_baseline,
     measure,
@@ -321,3 +322,14 @@ def test_nothing_is_checked_before_the_abstention_numbers_are_published(tmp_path
 
 def test_a_comparison_that_is_not_published_yet_is_not_checked(tmp_path: Path) -> None:
     assert check_answer_report([("a", tmp_path / "nowhere")], report=tmp_path / "none.json") == []
+
+
+def test_the_committed_whole_benchmark_numbers_and_submission_are_current(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    root = Path(__file__).resolve().parents[2]
+    monkeypatch.chdir(root)
+
+    assert check_full_benchmark(root / "eval/baselines/gate-fixture.jsonl.gz") == []
+
+
+def test_nothing_is_checked_before_the_whole_benchmark_is_published(tmp_path: Path) -> None:
+    assert check_full_benchmark(fixture_with_unanswerable(tmp_path), tmp_path / "none.json") == []

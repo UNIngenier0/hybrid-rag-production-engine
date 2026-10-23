@@ -187,6 +187,17 @@ def _parser() -> argparse.ArgumentParser:
     )
     scores.set_defaults(handler=_abstention_scores)
 
+    full = commands.add_parser(
+        "full-benchmark", help="score all 500 questions together and write the submission files"
+    )
+    full.add_argument("--questions", type=Path, default=DEFAULT_QUESTIONS)
+    full.add_argument("--runs", type=Path, nargs="+", help="judged runs that cover the questions")
+    full.add_argument("--judge", default="claude-haiku-5-5")
+    full.add_argument("--out-md", type=Path, default=Path("eval/reports/full-benchmark.md"))
+    full.add_argument("--out-json", type=Path, default=Path("eval/reports/full-benchmark.json"))
+    full.add_argument("--submission-dir", type=Path, default=Path("eval/submission"))
+    full.set_defaults(handler=_full_benchmark)
+
     fixture = commands.add_parser(
         "build-gate-fixture", help="write the fixture the regression gate replays"
     )
@@ -580,6 +591,56 @@ def _abstention_scores(args: argparse.Namespace) -> None:
     print(render(report))
 
 
+def _full_benchmark(args: argparse.Namespace) -> None:
+    from rag_engine.core.config import Settings
+    from rag_engine.evaluation.fullbench import (
+        DEFAULT_RUNS,
+        SubmissionError,
+        submission_rows,
+        write_submission,
+    )
+    from rag_engine.evaluation.fullbench import (
+        build_report as build_full_report,
+    )
+    from rag_engine.evaluation.fullbench import (
+        render as render_full,
+    )
+    from rag_engine.evaluation.gate import load_fixture
+
+    runs = args.runs or list(DEFAULT_RUNS)
+    expected = [question.question_id for question in load_questions(args.questions)]
+    try:
+        report = build_full_report(runs, args.judge, expected)
+        rows = submission_rows(runs)
+    except SubmissionError as error:
+        sys.exit(f"cannot build the submission: {error}")
+    args.out_md.parent.mkdir(parents=True, exist_ok=True)
+    args.out_md.write_text(render_full(report), encoding="utf-8")
+    args.out_json.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    checksum = write_submission(rows, args.submission_dir)
+    defaults = {name: field.default for name, field in Settings.model_fields.items()}
+    meta, _ = load_fixture(DEFAULT_GATE_FIXTURE)
+    manifest = {
+        "benchmark": "EnterpriseRAG-Bench",
+        "questions": len(rows),
+        "answers_sha256": checksum,
+        "system": {
+            **report["system"],
+            "retrieval": "dense + BM25, reciprocal rank fusion, cross-encoder reranking",
+            "embedding_model": defaults["embedding_model"],
+            "reranker": meta.get("reranker"),
+            "index_collection": defaults["qdrant_collection"],
+        },
+        "judge": report["judge"],
+        "overall": report["overall"],
+    }
+    (args.submission_dir / "manifest.json").write_text(
+        json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+    )
+    print(render_full(report))
+    print(f"wrote {len(rows)} answers to {args.submission_dir / 'answers.jsonl'}")
+
+
 def _append_searches(path: Path, searches: dict[str, dict[str, Any]], ids: dict[str, str]) -> None:
     """Keep what each search did, appended so a resumed run adds to the earlier one."""
     with path.open("a", encoding="utf-8") as handle:
@@ -612,6 +673,7 @@ def _gate(args: argparse.Namespace) -> None:
         UNANSWERABLE_REPORT,
         check_abstention_report,
         check_answer_report,
+        check_full_benchmark,
         load_fixture,
         make_baseline,
         measure,
@@ -635,8 +697,11 @@ def _gate(args: argparse.Namespace) -> None:
     print("Answer comparison: " + ("consistent and like for like." if not problems else ""))
     for problem in problems:
         print(f"- {problem}")
-    abstention = check_abstention_report(args.fixture)
-    print("Abstention numbers: " + ("match the fixture and the runs." if not abstention else ""))
+    abstention = check_abstention_report(args.fixture) + check_full_benchmark(args.fixture)
+    print(
+        "Abstention and whole-benchmark numbers: "
+        + ("match the fixture and the runs." if not abstention else "")
+    )
     for problem in abstention:
         print(f"- {problem}")
     if not retrieval.passed or problems or abstention:

@@ -194,6 +194,8 @@ curl -s localhost:8000/v1/search -H 'content-type: application/json' -d '{
 }'
 ```
 
+Or open <http://localhost:8000/demo> for a one-page version of `/v1/query` that shows each citation, its verification and the time per stage (with `API_KEYS` set, type a key into the page).
+
 The first query takes about 25 seconds, because the API downloads and loads the embedding model
 (the Compose volume `hf_cache` keeps it for next time). After that, the first minutes are the
 slowest, while the page cache fills.

@@ -1,0 +1,107 @@
+{
+  "judge": "claude-haiku-5-5",
+  "system": {
+    "model": "claude-haiku-5-5",
+    "mode": "hybrid+rerank",
+    "passages": 5
+  },
+  "runs": [
+    "eval/runs/rag-haiku-all",
+    "eval/runs/rag-haiku-unanswerable"
+  ],
+  "overall": {
+    "questions": 500,
+    "correct_pct": 55.4,
+    "completeness_pct": 61.36,
+    "combined": 50.97,
+    "document_recall_pct": 68.01,
+    "invalid_extra_docs": 1.28
+  },
+  "mean_of_type_combined": 54.14,
+  "by_type": {
+    "basic": {
+      "questions": 175,
+      "correct_pct": 73.71,
+      "completeness_pct": 73.5,
+      "combined": 69.29,
+      "document_recall_pct": 80.57,
+      "invalid_extra_docs": 1.08
+    },
+    "completeness": {
+      "questions": 20,
+      "correct_pct": 30.0,
+      "completeness_pct": 40.79,
+      "combined": 27.5,
+      "document_recall_pct": 35.49,
+      "invalid_extra_docs": 1.75
+    },
+    "conflicting_info": {
+      "questions": 20,
+      "correct_pct": 85.0,
+      "completeness_pct": 88.26,
+      "combined": 80.61,
+      "document_recall_pct": 90.0,
+      "invalid_extra_docs": 0.5
+    },
+    "constrained": {
+      "questions": 30,
+      "correct_pct": 56.67,
+      "completeness_pct": 79.4,
+      "combined": 51.23,
+      "document_recall_pct": 86.67,
+      "invalid_extra_docs": 0.57
+    },
+    "high_level": {
+      "questions": 10,
+      "correct_pct": 60.0,
+      "completeness_pct": 64.83,
+      "combined": 48.33,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    "info_not_found": {
+      "questions": 20,
+      "correct_pct": 100.0,
+      "completeness_pct": 100.0,
+      "combined": 100.0,
+      "document_recall_pct": null,
+      "invalid_extra_docs": null
+    },
+    "intra_document_reasoning": {
+      "questions": 40,
+      "correct_pct": 55.0,
+      "completeness_pct": 73.75,
+      "combined": 52.92,
+      "document_recall_pct": 95.0,
+      "invalid_extra_docs": 0.8
+    },
+    "miscellaneous": {
+      "questions": 20,
+      "correct_pct": 90.0,
+      "completeness_pct": 84.0,
+      "combined": 79.0,
+      "document_recall_pct": 100.0,
+      "invalid_extra_docs": 0.75
+    },
+    "project_related": {
+      "questions": 40,
+      "correct_pct": 12.5,
+      "completeness_pct": 39.06,
+      "combined": 6.86,
+      "document_recall_pct": 41.38,
+      "invalid_extra_docs": 1.45
+    },
+    "semantic": {
+      "questions": 125,
+      "correct_pct": 29.6,
+      "completeness_pct": 32.1,
+      "combined": 25.65,
+      "document_recall_pct": 42.4,
+      "invalid_extra_docs": 1.96
+    }
+  },
+  "cost_usd": {
+    "answers": 0.4209,
+    "judging": 0.4412
+  }
+}
