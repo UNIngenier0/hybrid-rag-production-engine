@@ -186,7 +186,7 @@ function renderCost(body) {
     const fill = el("span");
     fill.style.width = Math.max(1, (100 * ms) / longest) + "%";
     bar.append(fill);
-    row.append(el("span", name.replace("retrieval_", "retrieval \u00b7 ")), bar,
+    row.append(el("span", name.replace("retrieval_", "retrieval \u00b7 ").replace(/_/g, " ")), bar,
       el("span", (ms / 1000).toFixed(2) + " s", "num"));
     box.append(row);
   }

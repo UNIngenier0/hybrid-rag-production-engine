@@ -169,20 +169,41 @@ What the numbers say:
 ## The public copy of the demo
 
 GitHub Pages serves files and runs nothing, and the live service needs the 35 GB index and a model
-key, so the demo published at [https://uningenier0.github.io/hybrid-rag-production-engine/](https://uningenier0.github.io/hybrid-rag-production-engine/) is a **recording**: the same page, drawn by the same
-code as `/demo` (`src/rag_engine/api/demo_page.py`), replaying real `/v1/query` responses. The page
-says so, names the small CPU reranker the recording used and does not call any server.
+key, so the site published at [https://uningenier0.github.io/hybrid-rag-production-engine/](https://uningenier0.github.io/hybrid-rag-production-engine/) is a **recording**. It is a
+presentation page with an animated, seven-step walkthrough of how a question is answered, a picker
+of real `/v1/query` responses, the benchmark results as charts, and the limits stated next to the
+strengths. The page says that it replays recordings, names the small CPU reranker they used, and
+does not call any server.
+
+What is on it comes from files that are committed, so nothing is written by hand:
 
 - `scripts/record_examples.py` sends chosen benchmark questions to a running service (cache off,
-  citation check on) and stores the responses untouched in `site/examples.json`. Nothing in that
-  file is written by hand; re-record it after a change to the pipeline.
-- `scripts/build_site.py` turns the recording and the committed benchmark and abstention reports
-  into one `index.html`, so the numbers on the page are the repository's. Its content security
-  policy is a `<meta>` tag that allows the page's one script and style by hash (Pages cannot send
-  headers), and a test recomputes the hashes from the rendered page.
+  citation check on) and stores the responses untouched in `site/examples.json`.
+- `scripts/record_trace.py` sends one of those questions as a hybrid + rerank search for the whole
+  candidate pool and stores, for each of the 30 chunks, where the dense search, BM25 and the fusion
+  ranked it and what the reranker scored it (`site/trace.json`). The walkthrough draws exactly this.
+  Re-record both after a change to the pipeline.
+- `site/template.html`, `site/page.css` and `site/page.js` are the front end (no framework, no
+  build step, no font or script from another site). `scripts/build_site.py` assembles them with the
+  recordings and the committed benchmark, ablation, comparison, citation-check and abstention
+  reports into one `index.html`, so the numbers on the page are the repository's. The drawing code
+  of the answer cards is shared with the live `/demo` page (`src/rag_engine/api/demo_page.py`).
+- The content security policy is a `<meta>` tag that allows the page's one script and style by
+  hash (Pages cannot send headers); it has no `unsafe-inline`, so the page sets styles through
+  custom properties instead of `style` attributes. A test recomputes the hashes from the rendered
+  page and others check that no script builds markup from data or touches the network.
+- The text of the walkthrough names facts of the recorded question (that BM25 ranks the Jira ticket
+  second, that fusion leaves it 11th). A test checks each against the trace, so recording a
+  different question fails until the text is rewritten.
+- `site/og.png` is the preview image that LinkedIn and other sites show when the page is shared. Its
+  source is `site/og.html`, rendered at 1200 by 630 pixels with any Chromium; a test checks its
+  numbers against the benchmark report, so it has to be rendered again when they change.
 - `.github/workflows/pages.yml` builds and deploys it when any of those files change on `main`
   (or by hand from the Actions tab). A test checks that each recorded response still validates
   against the API's response model, so the recording cannot drift from the schema unnoticed.
+- The animation plays by itself while it is on screen, pauses when it leaves, and has play, pause,
+  step and replay controls and arrow-key navigation. With `prefers-reduced-motion` it does not play
+  and shows every step finished; without JavaScript the text of every step is still there.
 - The recorded examples are six benchmark questions of different kinds, the weakest category
   among them. The page does not claim a recorded answer is correct: only the benchmark's judge
   can, and the page links to the scores.

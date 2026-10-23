@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="__POLICY__">
+<title>Hybrid RAG Production Engine</title>
+<meta name="description" content="__DESCRIPTION__">
+<meta name="theme-color" content="#070a11">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Hybrid RAG Production Engine">
+<meta property="og:description" content="__DESCRIPTION__">
+__SOCIAL__
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3CclipPath id='c'%3E%3Ccircle cx='12' cy='16' r='9'/%3E%3C/clipPath%3E%3C/defs%3E%3Ccircle cx='12' cy='16' r='9' fill='%235aa9ff'/%3E%3Ccircle cx='20' cy='16' r='9' fill='%23ffb84d'/%3E%3Ccircle cx='20' cy='16' r='9' fill='%23a98bff' clip-path='url(%23c)'/%3E%3C/svg%3E">
+<style>__STYLE__</style>
+</head>
+<body>
+<svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
+  <symbol id="i-github" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24" fill="currentColor"><rect x="5.5" y="4" width="4.5" height="16" rx="1.2"/><rect x="14" y="4" width="4.5" height="16" rx="1.2"/></symbol>
+  <symbol id="i-prev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20L9 12l10-8z"/><path d="M5 19V5"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4l10 8-10 8z"/><path d="M19 5v14"/></symbol>
+  <symbol id="i-replay" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/></symbol>
+  <symbol id="i-activity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3.3 7.5L12 12.5l8.7-5M12 22V12.5"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14l4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></symbol>
+  <symbol id="i-db" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"/><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/></symbol>
+</svg>
+
+<a class="skip" href="#main">Skip to the content</a>
+
+<header class="nav" id="top">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top" aria-label="Hybrid RAG, back to the top">
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><defs><clipPath id="logo-lens"><circle cx="12" cy="16" r="9"/></clipPath></defs><circle cx="12" cy="16" r="9" fill="#5aa9ff"/><circle cx="20" cy="16" r="9" fill="#ffb84d"/><circle cx="20" cy="16" r="9" fill="#a98bff" clip-path="url(#logo-lens)"/></svg>
+      <span>Hybrid RAG</span>
+    </a>
+    <nav class="nav-links" aria-label="Sections">
+      <a href="#how">How it works</a>
+      <a href="#try">Try it</a>
+      <a href="#results">Results</a>
+      <a href="#build">Under the hood</a>
+      <a href="#limits">Limits</a>
+      <a href="#run">Run it</a>
+    </nav>
+    <div class="nav-actions">
+      <button class="icon-btn" id="theme" type="button" aria-label="Switch between light and dark colours">
+        <svg class="ic ic-sun" aria-hidden="true"><use href="#i-sun"/></svg>
+        <svg class="ic ic-moon" aria-hidden="true"><use href="#i-moon"/></svg>
+      </button>
+      <a class="btn btn-ghost" href="__REPO__"><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg><span>GitHub</span></a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <p class="eyebrow">Hybrid RAG &middot; measured on EnterpriseRAG-Bench</p>
+      <h1>Answers you can <span class="grad">check</span>, over half a million documents.</h1>
+      <p class="lead">Dense and BM25 search fused together, a cross-encoder reranker, and citations verified statement by statement. Scored on a public benchmark, with the weak spots published next to the strong ones.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="#how">Watch how it works <svg class="ic" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+        <a class="btn btn-secondary" href="#try">Try real answers</a>
+      </div>
+      <ul class="pills" aria-label="What it combines">
+        <li><i class="dot dot-blue"></i>Dense vectors</li>
+        <li><i class="dot dot-amber"></i>BM25</li>
+        <li><i class="dot dot-violet"></i>Cross-encoder rerank</li>
+        <li><i class="dot dot-green"></i>Verified citations</li>
+      </ul>
+    </div>
+
+    <figure class="hero-card" aria-label="A real question and answer from the service">
+      <div class="hc-bar"><i></i><i></i><i></i><span>POST /v1/query</span></div>
+      <div class="hc-body">
+        <p class="hc-label">Question</p>
+        <p class="hc-q">__HERO_QUESTION__</p>
+        <p class="hc-label">Answer <span class="badge ok">answered</span></p>
+        <p class="hc-a">__HERO_ANSWER__</p>
+        <ul class="hc-checks">
+          <li class="hc-ok"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>__HERO_CHECK__</li>
+          <li>__HERO_SOURCES__</li>
+          <li>__HERO_COST__</li>
+        </ul>
+      </div>
+      <figcaption class="hc-cap">A real response, recorded from the running service.</figcaption>
+    </figure>
+  </div>
+
+  <div class="wrap">
+    <dl class="stats">
+      <div class="stat"><dt>documents indexed</dt><dd data-count="511962">511,962</dd></div>
+      <div class="stat"><dt>passages searchable</dt><dd data-count="3064558">3,064,558</dd></div>
+      <div class="stat"><dt>combined score, __QUESTIONS__ questions</dt><dd data-count="__COMBINED__" data-decimals="2">__COMBINED__</dd></div>
+      <div class="stat"><dt>of answers judged correct</dt><dd data-count="__CORRECT__" data-decimals="1" data-suffix="%">__CORRECT__%</dd></div>
+      <div class="stat"><dt>to write an answer (model cost)</dt><dd>$__ANSWER_COST_EACH__</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="section" id="how">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">How it works</p>
+      <h2>Follow one real question through the system</h2>
+      <p class="section-lead">Seven steps, from indexing to the finished answer. Every candidate, rank, score, quote and timing on this stage was recorded from the running service for one question. Press play, or jump to any step.</p>
+    </div>
+
+    <div class="wt reveal" id="wt" role="group" aria-roledescription="step-by-step animation" aria-label="How a question is answered">
+      <ol class="wt-steps" id="wt-steps">
+        <li><button class="wt-step" type="button" data-go="0"><span class="wt-track"><span class="wt-fill"></span></span><span class="wt-label"><span class="wt-num">1</span><span class="wt-name">Index</span></span></button></li>
+        <li><button class="wt-step" type="button" data-go="1"><span class="wt-track"><span class="wt-fill"></span></span><span class="wt-label"><span class="wt-num">2</span><span class="wt-name">Ask</span></span></button></li>
+        <li><button class="wt-step" type="button" data-go="2"><span class="wt-track"><span class="wt-fill"></span></span><span class="wt-label"><span class="wt-num">3</span><span class="wt-name">Search</span></span></button></li>
+        <li><button class="wt-step" type="button" data-go="3"><span class="wt-track"><span class="wt-fill"></span></span><span class="wt-label"><span class="wt-num">4</span><span class="wt-name">Rerank</span></span></button></li>
+        <li><button class="wt-step" type="button" data-go="4"><span class="wt-track"><span class="wt-fill"></span></span><span class="wt-label"><span class="wt-num">5</span><span class="wt-name">Answer</span></span></button></li>
+        <li><button class="wt-step" type="button" data-go="5"><span class="wt-track"><span class="wt-fill"></span></span><span class="wt-label"><span class="wt-num">6</span><span class="wt-name">Verify</span></span></button></li>
+        <li><button class="wt-step" type="button" data-go="6"><span class="wt-track"><span class="wt-fill"></span></span><span class="wt-label"><span class="wt-num">7</span><span class="wt-name">Report</span></span></button></li>
+      </ol>
+
+      <div class="wt-stage" id="wt-stage">
+
+        <article class="wt-scene" data-dur="9000" aria-labelledby="wt-t0">
+          <div class="wt-visual">
+            <div class="prep">
+              <div class="prep-col">
+                <h4>Documents</h4>
+                <ul class="prep-sources" id="prep-sources"></ul>
+                <p class="prep-total"><b data-count="511962">511,962</b> documents</p>
+              </div>
+              <div class="prep-arrow" aria-hidden="true"><i></i></div>
+              <div class="prep-col">
+                <h4>Passages</h4>
+                <div class="chunk-grid" id="chunk-grid" aria-hidden="true"></div>
+                <p class="prep-total"><b data-count="3064558">3,064,558</b> passages</p>
+              </div>
+              <div class="prep-arrow" aria-hidden="true"><i></i></div>
+              <div class="prep-col">
+                <h4>Stored three ways</h4>
+                <div class="store s-dense" data-d="2400"><strong>Dense vectors</strong>768 numbers per passage, a map of its meaning</div>
+                <div class="store s-bm25" data-d="2800"><strong>BM25 index</strong>word statistics, for exact terms and identifiers</div>
+                <div class="store s-pg" data-d="3200"><strong>PostgreSQL</strong>the text around each passage, for the model</div>
+              </div>
+            </div>
+          </div>
+          <div class="wt-text">
+            <p class="wt-kicker">Step 1 of 7 &middot; once, before any question</p>
+            <h3 id="wt-t0">Cut the documents into passages and index them twice</h3>
+            <p>Half a million documents are split into 3,064,558 passages. Each passage is stored as a vector that captures its meaning and as word statistics for exact matching. The surrounding text waits in PostgreSQL.</p>
+            <ul class="wt-facts">
+              <li><b>2.16 h</b><span>of free GPU time computed every embedding, once</span></li>
+              <li><b>768</b><span>numbers describe each passage in the dense index</span></li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="wt-scene" data-dur="7500" aria-labelledby="wt-t1">
+          <div class="wt-visual">
+            <div class="ask">
+              <div class="ask-bar">
+                <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+                <p class="ask-text" id="ask-text"></p>
+                <span class="ask-send">Ask</span>
+              </div>
+              <div class="ask-read">
+                <div class="ask-card" data-d="3600">
+                  <h4><i class="dot dot-amber"></i>Exact words</h4>
+                  <p>Identifiers and settings such as <code>dp-132-usw</code> and <code>priority=high</code> must match literally. This is BM25's job.</p>
+                </div>
+                <div class="ask-card" data-d="4100">
+                  <h4><i class="dot dot-blue"></i>Meaning</h4>
+                  <p>&ldquo;Reserved&rdquo; and &ldquo;interactive burst credits&rdquo; can be worded differently in the documents. A dense model finds those.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="wt-text">
+            <p class="wt-kicker">Step 2 of 7</p>
+            <h3 id="wt-t1">A question arrives in plain language</h3>
+            <p>Some questions name an identifier, some only describe a symptom. This one is both: it names a pool and a setting, and asks for a value. Exact words matter as much as meaning, so the system looks for both.</p>
+            <ul class="wt-facts">
+              <li><b>Real</b><span>question from the benchmark, answered by the live service</span></li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="wt-scene" data-dur="10500" aria-labelledby="wt-t2">
+          <div class="wt-visual" id="v-search"></div>
+          <div class="wt-text">
+            <p class="wt-kicker">Step 3 of 7</p>
+            <h3 id="wt-t2">Search by meaning and by exact words, then fuse</h3>
+            <p>A dense model ranks passages by meaning. BM25 ranks them by the words they contain. Reciprocal rank fusion merges the two lists. Look at the Jira ticket: BM25 puts it second, and the dense search never lists it.</p>
+            <ul class="wt-facts">
+              <li><b>__R_DENSE__ / __R_BM25__</b><span>document recall in the first 5 passages, dense / BM25 alone</span></li>
+              <li><b>__R_HYBRID__</b><span>after fusion, over 470 benchmark questions</span></li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="wt-scene" data-dur="11500" aria-labelledby="wt-t3">
+          <div class="wt-visual" id="v-rerank"></div>
+          <div class="wt-text">
+            <p class="wt-kicker">Step 4 of 7</p>
+            <h3 id="wt-t3">Read the question and each passage together</h3>
+            <p>The 30 best candidates go to a cross-encoder, which reads the question and a passage at once and scores how well they fit. It re-sorts the pool: the ticket BM25 found climbs from 11th to 2nd, and the top five go on.</p>
+            <ul class="wt-facts">
+              <li><b>__R_HYBRID__ &rarr; __R_RERANK__</b><span>document recall at 5 passages, fused &rarr; reranked (the benchmark's larger reranker)</span></li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="wt-scene" data-dur="9500" aria-labelledby="wt-t4">
+          <div class="wt-visual" id="v-answer"></div>
+          <div class="wt-text">
+            <p class="wt-kicker">Step 5 of 7</p>
+            <h3 id="wt-t4">Write the answer, citing each passage</h3>
+            <p>Claude Haiku 5.5 receives the five passages with the text around them and writes plain prose. Every sentence carries the number of the passage it rests on.</p>
+            <ul class="wt-facts">
+              <li><b>5</b><span>passages reach the model, from 2 different documents</span></li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="wt-scene" data-dur="12000" aria-labelledby="wt-t5">
+          <div class="wt-visual" id="v-verify"></div>
+          <div class="wt-text">
+            <p class="wt-kicker">Step 6 of 7</p>
+            <h3 id="wt-t5">Check every statement against its source</h3>
+            <p>Does the cited passage exist? Do its numbers and names appear there? Can a judge quote the sentence that supports the statement, and is that quote found word for word? A statement that fails is flagged, never hidden.</p>
+            <ul class="wt-facts">
+              <li><b>__PLANTED_CITATION__% / __PLANTED_NUMBER__%</b><span>of planted errors caught: a moved citation / a changed number</span></li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="wt-scene" data-dur="10500" aria-labelledby="wt-t6">
+          <div class="wt-visual" id="v-report"></div>
+          <div class="wt-text">
+            <p class="wt-kicker">Step 7 of 7</p>
+            <h3 id="wt-t6">Say what is missing, and what it cost</h3>
+            <p>The response carries a status, the list of what the documents do not say, the result of every check, and the time of every stage. The status is worth reading: answers that admit a gap were right <strong>__MISSING_RIGHT__%</strong> of the time, the others <strong>__REST_RIGHT__%</strong>.</p>
+            <ul class="wt-facts">
+              <li><b>answered &middot; partial &middot; not found</b><span>the three statuses of an answer</span></li>
+            </ul>
+          </div>
+        </article>
+      </div>
+
+      <div class="wt-controls">
+        <div class="wt-buttons">
+          <button class="icon-btn" id="wt-prev" type="button" aria-label="Previous step"><svg class="ic" aria-hidden="true"><use href="#i-prev"/></svg></button>
+          <button class="icon-btn icon-btn-main" id="wt-play" type="button" aria-label="Pause the animation"><svg class="ic ic-pause" aria-hidden="true"><use href="#i-pause"/></svg><svg class="ic ic-play" aria-hidden="true"><use href="#i-play"/></svg></button>
+          <button class="icon-btn" id="wt-next" type="button" aria-label="Next step"><svg class="ic" aria-hidden="true"><use href="#i-next"/></svg></button>
+          <button class="icon-btn" id="wt-replay" type="button" aria-label="Replay this step"><svg class="ic" aria-hidden="true"><use href="#i-replay"/></svg></button>
+        </div>
+        <p class="wt-hint" id="wt-hint">Plays on its own while you can see it. Arrow keys move between steps.</p>
+      </div>
+    </div>
+    <noscript><p class="callout">The animation and the recorded answers need JavaScript. The text of every step is above, and everything else on this page is plain HTML.</p></noscript>
+  </div>
+</section>
+
+<section class="section alt" id="try">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Try it</p>
+      <h2>Real answers, recorded from the live service</h2>
+      <p class="section-lead">Pick a question. The answer, the sources, the verdict on every statement and the time of every stage are the untouched response of <code>POST /v1/query</code>.</p>
+    </div>
+    <p class="callout reveal" role="note"><strong>This page replays recordings.</strong> The six responses were recorded on __RECORDED_ON__ from a development laptop with __HARDWARE__, using the small <code>__RERANKER__</code> reranker. It does not call any server: the live service needs a 35&nbsp;GB index and a model key, so it runs from the repository (see <a href="#run">Run it</a>). The times are that laptop's, and the benchmark scores further down used a larger reranker on a GPU.</p>
+
+    <div class="ex reveal">
+      <div class="ex-list" id="ex-list" role="tablist" aria-label="Recorded questions"></div>
+      <div class="ex-panel" id="ex-panel" role="tabpanel" aria-live="polite">
+        <div class="ex-head">
+          <p class="ex-type" id="ex-type"></p>
+          <p class="ex-q" id="question"></p>
+          <p class="ex-note" id="note"></p>
+        </div>
+        <div class="result" id="result"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="results">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Results</p>
+      <h2>Measured on all __QUESTIONS__ benchmark questions</h2>
+      <p class="section-lead">Answered and scored by the benchmark's own evaluator with __JUDGE__ as the judge: <strong>__COMBINED__</strong> on its combined correctness-and-completeness measure, __CORRECT__% of answers correct. The judge is not the one the public leaderboard uses, so this score is not comparable with it.</p>
+    </div>
+
+    <div class="kpis reveal">
+      <div class="kpi"><svg class="ic" aria-hidden="true"><use href="#i-chart"/></svg><b>__COMBINED__</b><span>combined score</span></div>
+      <div class="kpi"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><b>__CORRECT__%</b><span>answers judged correct</span></div>
+      <div class="kpi"><svg class="ic" aria-hidden="true"><use href="#i-doc"/></svg><b>__DOC_RECALL__%</b><span>of the right documents cited</span></div>
+      <div class="kpi"><svg class="ic" aria-hidden="true"><use href="#i-gauge"/></svg><b>$__ANSWER_COST__</b><span>to answer all __QUESTIONS__ questions</span></div>
+    </div>
+
+    <div class="charts">
+      <section class="panel reveal" aria-labelledby="c-types">
+        <h3 id="c-types">Score by question type</h3>
+        <p class="panel-sub">Combined score out of 100, with the number of questions of each type.</p>
+        <div class="hbars">__TYPE_BARS__</div>
+        <div class="legend"><span><i class="dot dot-green"></i>strong</span><span><i class="dot dot-blue"></i>middling</span><span><i class="dot dot-amber"></i>weak</span></div>
+        <details class="tbl"><summary>Show the table</summary>__TYPE_TABLE__</details>
+      </section>
+      <div class="charts-col">
+        <section class="panel reveal" aria-labelledby="c-recall">
+          <h3 id="c-recall">Finding the right documents</h3>
+          <p class="panel-sub">Share of the gold documents found among the first 5 passages (470 questions).</p>
+          <div class="hbars">__RECALL_BARS__</div>
+        </section>
+        <section class="panel reveal" aria-labelledby="c-rivals">
+          <h3 id="c-rivals">Against the grep baselines</h3>
+          <p class="panel-sub">Combined score on 96 questions, same model, judge and questions for every system.</p>
+          <div class="hbars">__RIVAL_BARS__</div>
+          <p class="panel-note">Ahead of the iterating agent in both runs, but by how much is not settled: the interval of the gap includes zero in the second run. <a href="__DOCS__/results.md">The details</a>.</p>
+        </section>
+      </div>
+    </div>
+    <p class="insight reveal">The system is strong where the answer sits in one document the question can name, and weak where it is spread over many: <em>semantic</em> (__W_SEMANTIC__), <em>project related</em> (__W_PROJECT__) and <em>completeness</em> (__W_COMPLETENESS__). That is a retrieval limit, not a writing one. <a href="__DOCS__/results.md">Every result, with its limits</a>.</p>
+  </div>
+</section>
+
+<section class="section alt" id="build">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Under the hood</p>
+      <h2>Built like something you would run</h2>
+      <p class="section-lead">A FastAPI service in front of Qdrant, PostgreSQL and Redis, with the access control, limits, caching and metrics a deployment needs, all of it started by one Compose file.</p>
+    </div>
+
+    <div class="sysmap reveal" aria-label="System map">
+      <div class="sm-col">
+        <p class="sm-title">Clients</p>
+        <div class="sm-box"><strong>Browser or API client</strong><span><code>/demo</code>, <code>curl</code>, any HTTP client</span></div>
+      </div>
+      <div class="sm-link" aria-hidden="true"><i></i></div>
+      <div class="sm-col sm-api">
+        <p class="sm-title">FastAPI service</p>
+        <div class="sm-box sm-box-main">
+          <ul>
+            <li><svg class="ic" aria-hidden="true"><use href="#i-key"/></svg>API keys and per-client rate limits</li>
+            <li><svg class="ic" aria-hidden="true"><use href="#i-layers"/></svg>Hybrid retrieval and reranking</li>
+            <li><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>Cited answers, statement checks, status</li>
+            <li><svg class="ic" aria-hidden="true"><use href="#i-activity"/></svg>Answer cache, metrics and health probes</li>
+          </ul>
+        </div>
+      </div>
+      <div class="sm-link" aria-hidden="true"><i></i></div>
+      <div class="sm-col">
+        <p class="sm-title">Backing services</p>
+        <div class="sm-box sm-blue"><strong>Qdrant</strong><span>3,064,558 passages, dense and BM25</span></div>
+        <div class="sm-box sm-violet"><strong>PostgreSQL</strong><span>parent passages and documents</span></div>
+        <div class="sm-box sm-amber"><strong>Redis</strong><span>answer cache and rate limits</span></div>
+        <div class="sm-box"><strong>Anthropic API</strong><span>writes the answers and judges the citations</span></div>
+      </div>
+      <div class="sm-offline">
+        <p class="sm-title">Built offline, once</p>
+        <ol>
+          <li>Corpus download, SHA-256 checked</li>
+          <li>Cleaning and chunking</li>
+          <li>Embeddings on a free Kaggle GPU</li>
+          <li>Parquet shards loaded into Qdrant</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="features reveal">
+      <article class="feature"><svg class="ic" aria-hidden="true"><use href="#i-layers"/></svg><h3>Hybrid retrieval</h3><p>Dense vectors and BM25 searched in parallel, fused by reciprocal rank, then a cross-encoder rescoring the best 30.</p></article>
+      <article class="feature"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg><h3>Verified citations</h3><p>Every statement is checked against the passage it cites. On planted errors the check flags __PLANTED_CITATION__% of moved citations and __PLANTED_NUMBER__% of changed numbers.</p></article>
+      <article class="feature"><svg class="ic" aria-hidden="true"><use href="#i-doc"/></svg><h3>Honest answers</h3><p>Each answer is <em>answered</em>, <em>partial</em> or <em>not found</em>, and lists what the documents do not say.</p></article>
+      <article class="feature"><svg class="ic" aria-hidden="true"><use href="#i-key"/></svg><h3>Access control</h3><p>Named API keys compared in constant time, and per-client rate limits kept in Redis.</p></article>
+      <article class="feature"><svg class="ic" aria-hidden="true"><use href="#i-alert"/></svg><h3>Honest failures</h3><p>A slow or unreachable backend returns <code>503</code>, not a stack trace. A load test found the bug that unit tests could not.</p></article>
+      <article class="feature"><svg class="ic" aria-hidden="true"><use href="#i-activity"/></svg><h3>Cache and metrics</h3><p>Repeated questions come from Redis at no cost. Prometheus metrics use bounded labels, so cardinality stays flat.</p></article>
+      <article class="feature"><svg class="ic" aria-hidden="true"><use href="#i-chart"/></svg><h3>Measured, not claimed</h3><p>A regression gate in CI recomputes every published number, and a nine-check fairness audit guards each comparison.</p></article>
+      <article class="feature"><svg class="ic" aria-hidden="true"><use href="#i-box"/></svg><h3>Runs anywhere</h3><p>One Compose file on macOS, Windows (WSL 2) and Linux, and a documented way to move the whole index between machines.</p></article>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="limits">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Honest limits</p>
+      <h2>What this does not claim</h2>
+      <p class="section-lead">A result is only as useful as the list of things it cannot support. These are the three that matter most.</p>
+    </div>
+    <div class="limits reveal">
+      <article class="limit"><svg class="ic" aria-hidden="true"><use href="#i-alert"/></svg><h3>Not a leaderboard score</h3><p>The same small model, __JUDGE__, writes the answers and judges them, and the public leaderboard uses a different judge. The scores compare the systems inside this project, not against other entries.</p></article>
+      <article class="limit"><svg class="ic" aria-hidden="true"><use href="#i-alert"/></svg><h3>One retrieval pass is not enough</h3><p>Answers spread over many documents score __W_SEMANTIC__ (semantic), __W_PROJECT__ (project related) and __W_COMPLETENESS__ (completeness). The next step is a fourth system that retrieves again when the first pass is thin; its <a href="__DOCS__/phase-8-iterative-rag.md">plan</a> is written, the code is not.</p></article>
+      <article class="limit"><svg class="ic" aria-hidden="true"><use href="#i-alert"/></svg><h3>Speed needs hardware</h3><p>An answer took __LATENCY_RANGE__ seconds on an 8&nbsp;GB laptop with the index mostly on disk. The one-second retrieval target is missed, and documented as missed. A GPU for the reranker and more memory are the fix.</p></article>
+    </div>
+    <p class="insight reveal">Deliberately not built: document upload and a queue worker, tracing and dashboards, TLS termination, RAGAS metrics and a hand-written golden set. <a href="__REPO__#readme">The README</a> lists what exists and what does not.</p>
+  </div>
+</section>
+
+<section class="section alt" id="run">
+  <div class="wrap run-grid">
+    <div class="reveal">
+      <p class="eyebrow">Run it</p>
+      <h2>Clone it and ask your own questions</h2>
+      <p class="section-lead">The live service needs the index loaded first (about 35&nbsp;GB of disk) and an Anthropic key in <code>.env</code>. The guides cover the machine, the index and every step of the reproduction with its cost.</p>
+      <ul class="links">
+        <li><a href="__DOCS__/setup.md">Set up a machine <svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+        <li><a href="__DOCS__/reproduce.md">Reproduce every number <svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+        <li><a href="__DOCS__/lessons-learned.md">Lessons learned <svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+        <li><a href="__DOCS__/operations.md">Running it in production <svg class="ic" aria-hidden="true"><use href="#i-out"/></svg></a></li>
+      </ul>
+    </div>
+    <div class="term reveal">
+      <div class="term-bar"><i></i><i></i><i></i><span>bash</span><button class="copy" id="copy" type="button"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg><span id="copy-label">Copy</span></button></div>
+      <pre><code id="cmds">git clone __REPO__
+cd hybrid-rag-production-engine
+cp .env.example .env            # set POSTGRES_PASSWORD, ANTHROPIC_API_KEY
+docker compose up --build --wait
+open http://localhost:8000/demo</code></pre>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    <p>The documents and questions are from <a href="https://github.com/onyx-dot-app/EnterpriseRAG-Bench">EnterpriseRAG-Bench</a> (MIT license): the data of an invented company, generated by language models. Its authors ask that benchmark data stay out of training corpora; please respect that for the examples on this page.</p>
+    <p class="footer-line"><a href="__REPO__">Source code and documentation</a> &middot; built by <a href="__OWNER_URL__">__OWNER__</a></p>
+  </div>
+</footer>
+
+<script type="application/json" id="site-data">__DATA__</script>
+<script>__SCRIPT__</script>
+</body>
+</html>

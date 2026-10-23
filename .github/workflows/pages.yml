@@ -1,7 +1,8 @@
 name: Pages
 
-# Publishes the recorded copy of the demo (site/examples.json, drawn by src/rag_engine/site_page.py)
-# on GitHub Pages. The live service cannot run there: it needs the index and a model key.
+# Publishes the project's site on GitHub Pages: the front end in site/ (template, stylesheet and script),
+# the recorded responses and retrieval trace, and the published reports, assembled by
+# scripts/build_site.py. The live service cannot run there: it needs the index and a model key.
 on:
   push:
     branches: [main]
@@ -12,6 +13,9 @@ on:
       - scripts/build_site.py
       - eval/reports/full-benchmark.json
       - eval/reports/abstention-scores.json
+      - eval/reports/retrieval-ablation.json
+      - eval/reports/answer-comparison.json
+      - eval/reports/citation-verification.json
       - .github/workflows/pages.yml
   workflow_dispatch:
 
@@ -36,7 +40,7 @@ jobs:
           enable-cache: true
       - name: Install locked dependencies
         run: uv sync --locked
-      - name: Build the page from the recorded responses and the published reports
+      - name: Build the page from the front end, the recordings and the published reports
         run: uv run python scripts/build_site.py --out _site
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5

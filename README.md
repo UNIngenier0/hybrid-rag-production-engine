@@ -16,7 +16,7 @@
 | `POST /v1/query` with verified citations, answer status and optional abstention | Built ([notes](docs/generation.md)) |
 | Evaluation harness, regression gate in CI, grep baselines, fairness audit | Built ([notes](docs/evaluation.md)) |
 | API keys, rate limits, answer cache, Prometheus metrics, load test | Built ([notes](docs/operations.md)) |
-| Demo page | Built (`/demo`); a recorded copy for [GitHub Pages](https://uningenier0.github.io/hybrid-rag-production-engine/) ([how it is made](docs/operations.md#the-public-copy-of-the-demo)) |
+| Demo page | Built (`/demo`); a recorded copy for [GitHub Pages](https://uningenier0.github.io/hybrid-rag-production-engine/), with an animated walkthrough of how a question is answered ([how it is made](docs/operations.md#the-public-copy-of-the-demo)) |
 | Document upload (`POST /v1/documents`), the Redis job queue and the upload worker, versioned re-ingestion | **Not built**: the corpus is loaded by the bulk pipeline |
 | Conflict-aware answering as its own step, a hand-written golden set, RAGAS metrics | **Not built**: the prompt tells the model to prefer the latest value, and the benchmark's own questions and judge stand in for the golden set |
 | Distributed tracing, the Prometheus and Grafana containers, TLS | **Not built**: metrics are exposed for them to scrape |

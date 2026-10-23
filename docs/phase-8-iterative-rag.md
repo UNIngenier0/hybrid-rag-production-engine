@@ -583,7 +583,9 @@ of section 2 was not met, say which and by how much.
    it can.
 2. **Site.** Re-record the examples against the live iterative service
    (`scripts/record_examples.py --ids ... --reranker <name>`; add the strategy and a steps display to
-   `RENDER_JS` if useful), rebuild with `scripts/build_site.py`, and update `NOTES` in
+   `RENDER_JS` if useful), re-record the walkthrough's trace if the retrieval changed
+   (`scripts/record_trace.py`; the walkthrough text in `site/template.html` states facts of that trace
+   and a test checks them), rebuild with `scripts/build_site.py`, and update `NOTES` in
    `src/rag_engine/site_page.py` if the examples change. The Pages workflow redeploys on push.
 3. **Checks.** `ruff`, `mypy`, `pytest`, the gate, `scripts/e2e.sh --rivals`, the link check used in
    earlier phases (every relative link and anchor in the README and `docs/` must resolve).
