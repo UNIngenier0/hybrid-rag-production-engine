@@ -20,6 +20,7 @@ from rag_engine.core.models import (
     LLMReply,
     LLMUsage,
     PassageSpan,
+    RateDecision,
     RetrievalMode,
     RetrievalResult,
     SearchFilters,
@@ -334,3 +335,43 @@ class FakeRetriever:
             hits=self.hits[: limit or len(self.hits)],
             timings_ms={"total": 2.0},
         )
+
+
+class FakeRateLimiter:
+    """Counts hits per key like the Redis one (a fixed window that never ends) and records them."""
+
+    def __init__(self, error: Exception | None = None) -> None:
+        self.error = error
+        self.counts: dict[str, int] = {}
+        self.calls: list[tuple[str, int, int]] = []
+
+    async def hit(self, key: str, limit: int, window_seconds: int) -> RateDecision:
+        if self.error is not None:
+            raise self.error
+        self.calls.append((key, limit, window_seconds))
+        self.counts[key] = self.counts.get(key, 0) + 1
+        count = self.counts[key]
+        return RateDecision(
+            allowed=count <= limit,
+            limit=limit,
+            remaining=max(0, limit - count),
+            retry_after_seconds=window_seconds,
+        )
+
+
+class FakeCache:
+    def __init__(self, error: Exception | None = None) -> None:
+        self.error = error
+        self.values: dict[str, str] = {}
+        self.ttls: dict[str, int] = {}
+
+    async def get(self, key: str) -> str | None:
+        if self.error is not None:
+            raise self.error
+        return self.values.get(key)
+
+    async def set(self, key: str, value: str, ttl_seconds: int) -> None:
+        if self.error is not None:
+            raise self.error
+        self.values[key] = value
+        self.ttls[key] = ttl_seconds

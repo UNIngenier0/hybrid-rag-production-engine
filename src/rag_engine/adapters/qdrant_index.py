@@ -5,14 +5,20 @@ import logging
 import time
 from collections.abc import Mapping, Sequence
 
+from grpc.aio import AioRpcError
 from qdrant_client import AsyncQdrantClient, models
+from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedResponse
 
+from rag_engine.core.errors import RetrievalUnavailableError
 from rag_engine.core.models import ChunkHit, ChunkPoint, SearchFilters, SparseVector
 
 logger = logging.getLogger(__name__)
 
 DENSE_VECTOR = "dense"
 SPARSE_VECTOR = "bm25"
+
+# What a search raises when Qdrant is down, too slow (the gRPC deadline) or overloaded.
+_UNAVAILABLE = (AioRpcError, ResponseHandlingException, UnexpectedResponse, OSError, TimeoutError)
 
 
 class QdrantChunkIndex:
@@ -145,15 +151,21 @@ class QdrantChunkIndex:
         filters: SearchFilters | None,
         params: models.SearchParams | None,
     ) -> list[ChunkHit]:
-        response = await self._client.query_points(
-            collection_name=self._collection,
-            query=query,
-            using=using,
-            query_filter=_filter(filters),
-            search_params=params,
-            limit=limit,
-            with_payload=True,
-        )
+        try:
+            response = await self._client.query_points(
+                collection_name=self._collection,
+                query=query,
+                using=using,
+                query_filter=_filter(filters),
+                search_params=params,
+                limit=limit,
+                with_payload=True,
+            )
+        except _UNAVAILABLE as error:
+            # Under load a cold search can outlast the deadline: that is "try again later" for the
+            # caller (a 503), not a crash.
+            logger.warning("qdrant search failed", exc_info=True)
+            raise RetrievalUnavailableError(f"qdrant: {type(error).__name__}") from error
         return [_hit(point) for point in response.points]
 
     async def count(self) -> int:

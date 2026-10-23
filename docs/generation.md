@@ -54,6 +54,7 @@ Generation took 3 to 4 seconds and verification 2 to 6 in every call made.)
 | `chunks` | Passages the answer is written from, 1 to 10 (`QUERY_CHUNKS`, 5 by default) |
 | `filters` | `source_types` and `doc_ids`, as in `/v1/search` |
 | `verify` | Run the judge that checks each citation (`VERIFY_CITATIONS`, on by default). With `false`, no statement is ever called `verified` |
+| `cache` | `false` answers from the pipeline without reading or writing the answer cache ([operations](operations.md#answer-cache)); `true` by default |
 
 Errors: `422` for an invalid request, `503` when retrieval is down or no key is set, `502` when the
 model fails. The cause stays in the server logs.

@@ -1,10 +1,12 @@
 """PostgreSQL store for cleaned documents and per-document ingestion progress."""
 
+import logging
 from collections.abc import Mapping, Sequence
 from typing import Self
 
 import asyncpg
 
+from rag_engine.core.errors import RetrievalUnavailableError
 from rag_engine.core.models import (
     DocumentProgress,
     PassageSpan,
@@ -12,6 +14,8 @@ from rag_engine.core.models import (
     SourceDocument,
 )
 from rag_engine.core.ports import IndexStage, Shard
+
+logger = logging.getLogger(__name__)
 
 _SCHEMA = (
     """
@@ -181,13 +185,17 @@ class PostgresDocumentStore:
         unique = list(dict.fromkeys(spans))
         if not unique:
             return {}
-        rows = await self._pool.fetch(
-            _PASSAGES,
-            [span.doc_id for span in unique],
-            [span.content_sha256 for span in unique],
-            [span.start for span in unique],
-            [span.end for span in unique],
-        )
+        try:
+            rows = await self._pool.fetch(
+                _PASSAGES,
+                [span.doc_id for span in unique],
+                [span.content_sha256 for span in unique],
+                [span.start for span in unique],
+                [span.end for span in unique],
+            )
+        except (asyncpg.PostgresError, asyncpg.InterfaceError, OSError, TimeoutError) as error:
+            logger.warning("passage lookup failed", exc_info=True)
+            raise RetrievalUnavailableError(f"postgres: {type(error).__name__}") from error
         return {
             PassageSpan(row["doc_id"], row["content_sha256"], row["span_start"], row["span_end"]): (
                 row["text"]

@@ -11,7 +11,14 @@ from rag_engine.core.ports import HealthProbe
 @pytest.fixture
 def settings() -> Settings:
     # `_env_file=None` keeps a developer's local .env out of the tests.
-    return Settings(_env_file=None, database_url="postgresql://rag:s3cret@db:5432/rag")
+    # Limits and the answer cache need Redis; the tests that cover them turn them on with fakes.
+    return Settings(
+        _env_file=None,
+        database_url="postgresql://rag:s3cret@db:5432/rag",
+        rate_limit_search_per_minute=0,
+        rate_limit_query_per_minute=0,
+        query_cache_ttl_seconds=0,
+    )
 
 
 @pytest.fixture

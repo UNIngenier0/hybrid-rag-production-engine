@@ -1,0 +1,44 @@
+{
+  "machine": "aarch64 Linux, client on the same host",
+  "server": "limits and cache off, 6 GB Docker VM, MiniLM-L6 reranker, Claude Haiku 5.5, citation judge on",
+  "runs": [
+    {
+      "endpoint": "query",
+      "concurrency": 1,
+      "requests": 8,
+      "ok": 8,
+      "statuses": {
+        "200": 8
+      },
+      "seconds": 223.59,
+      "throughput_rps": 0.036,
+      "latency_s": {
+        "mean": 27.945,
+        "p50": 23.972,
+        "p95": 40.226,
+        "p99": 40.226,
+        "max": 40.226
+      },
+      "options": "mode=hybrid+rerank, verify=True"
+    },
+    {
+      "endpoint": "query",
+      "concurrency": 2,
+      "requests": 8,
+      "ok": 8,
+      "statuses": {
+        "200": 8
+      },
+      "seconds": 166.26,
+      "throughput_rps": 0.048,
+      "latency_s": {
+        "mean": 40.867,
+        "p50": 38.443,
+        "p95": 51.44,
+        "p99": 51.44,
+        "max": 51.44
+      },
+      "options": "mode=hybrid+rerank, verify=True"
+    }
+  ]
+}

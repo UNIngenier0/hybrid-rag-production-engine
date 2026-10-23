@@ -112,6 +112,8 @@ class QueryRequest(BaseModel):
     filters: SearchFiltersRequest = Field(default_factory=SearchFiltersRequest)
     # Run the judge that checks each citation; the server's VERIFY_CITATIONS when left out.
     verify: bool | None = None
+    # false answers from the pipeline without reading or writing the answer cache.
+    cache: bool = True
 
 
 class CitedPassage(BaseModel):
@@ -165,6 +167,9 @@ class Usage(BaseModel):
 class QueryResponse(BaseModel):
     query: str
     mode: RetrievalMode
+    # True when this exact question was answered recently and the stored answer is returned: no
+    # model was called, so `usage` is zero and `timings_ms` only holds the lookup.
+    cached: bool = False
     answer: str
     # "answered": the answer says nothing is missing. "partial": it states part and says the
     # documents lack the rest (`gaps` quotes those sentences). "not_found": it says only that it

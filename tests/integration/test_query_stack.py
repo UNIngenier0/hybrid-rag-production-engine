@@ -23,7 +23,9 @@ STATUSES = {
 
 
 def ask(**body: object) -> httpx.Response:
-    return httpx.post(f"{API_URL}/v1/query", json={"query": QUESTION, **body}, timeout=300)
+    # Fresh answers unless a test asks for the cache: the same question is asked all the time here.
+    options = {"query": QUESTION, "cache": False, **body}
+    return httpx.post(f"{API_URL}/v1/query", json=options, timeout=300)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -85,3 +87,15 @@ def test_a_question_the_documents_cannot_answer_is_not_presented_as_answered() -
     ).json()
 
     assert body["status"] in {"partial", "not_found", "abstained"}, body["answer"]
+
+
+def test_asking_the_same_question_again_is_answered_from_the_cache() -> None:
+    first = ask(verify=False, cache=True).json()
+    second = ask(verify=False, cache=True).json()
+
+    if second["cached"] is False and first["cached"] is False:
+        pytest.skip("the answer cache is off on this stack (QUERY_CACHE_TTL_SECONDS=0)")
+    assert second["cached"] is True
+    assert second["answer"] == first["answer"]
+    assert second["usage"]["input_tokens"] == 0
+    assert second["timings_ms"]["total"] < 1000

@@ -12,6 +12,7 @@ from rag_engine.core.models import (
     DocumentProgress,
     LLMReply,
     PassageSpan,
+    RateDecision,
     RetrievalMode,
     RetrievalResult,
     SearchFilters,
@@ -176,3 +177,19 @@ class Retriever(Protocol):
         limit: int | None = None,
         include_context: bool = False,
     ) -> RetrievalResult: ...
+
+
+class RateLimiter(Protocol):
+    """Counts requests per key in a time window, shared by every API process."""
+
+    async def hit(self, key: str, limit: int, window_seconds: int) -> RateDecision:
+        """Count one request against `key`. Raises when the counter cannot be reached."""
+        ...
+
+
+class ResponseCache(Protocol):
+    """Holds serialised responses for a while, shared by every API process."""
+
+    async def get(self, key: str) -> str | None: ...
+
+    async def set(self, key: str, value: str, ttl_seconds: int) -> None: ...

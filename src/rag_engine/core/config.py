@@ -87,12 +87,35 @@ class Settings(BaseSettings):
     # declines on score.
     abstain_threshold: float | None = None
 
+    # Access control and abuse protection for /v1/*. Keys are "name:secret" pairs separated by
+    # commas; the name identifies the client in logs, limits and metrics, the secret never appears
+    # anywhere. With no keys configured the API is open, which is for local development only.
+    api_keys: SecretStr | None = None
+    # When set, /metrics needs "Authorization: Bearer <token>". Otherwise keep it on a private
+    # network: the metrics say how busy the service is.
+    metrics_token: SecretStr | None = None
+    # Requests per client per minute (a fixed window kept in Redis); 0 turns a limit off. Answers
+    # cost model calls, so their limit is much lower than the one for search.
+    rate_limit_search_per_minute: int = Field(default=120, ge=0)
+    rate_limit_query_per_minute: int = Field(default=20, ge=0)
+    # How long an identical /v1/query is answered from Redis instead of the pipeline; 0 turns the
+    # cache off. Changing the namespace drops every cached answer (do it after re-indexing).
+    query_cache_ttl_seconds: int = Field(default=3600, ge=0)
+    query_cache_namespace: str = "v1"
+
     # Bulk ingestion.
     dataset_path: Path = Path("data/raw/documents/test.parquet")
     vectors_dir: Path = Path("data/vectors")
     ingest_batch_size: int = Field(default=200, gt=0)
 
-    @field_validator("anthropic_api_key", "verification_model", "abstain_threshold", mode="before")
+    @field_validator(
+        "anthropic_api_key",
+        "verification_model",
+        "abstain_threshold",
+        "api_keys",
+        "metrics_token",
+        mode="before",
+    )
     @classmethod
     def _empty_means_unset(cls, value: object) -> object:
         """Docker Compose passes an unset variable as an empty string: that means "not set"."""

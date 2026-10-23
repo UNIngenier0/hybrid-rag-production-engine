@@ -1,0 +1,63 @@
+{
+  "machine": "aarch64 Linux, client on the same host",
+  "server": "limits and cache off, 6 GB Docker VM, MiniLM-L6 reranker",
+  "runs": [
+    {
+      "endpoint": "search",
+      "concurrency": 1,
+      "requests": 12,
+      "ok": 12,
+      "statuses": {
+        "200": 12
+      },
+      "seconds": 148.67,
+      "throughput_rps": 0.081,
+      "latency_s": {
+        "mean": 12.387,
+        "p50": 10.275,
+        "p95": 18.0,
+        "p99": 18.0,
+        "max": 18.0
+      },
+      "options": "mode=hybrid, limit=10"
+    },
+    {
+      "endpoint": "search",
+      "concurrency": 2,
+      "requests": 12,
+      "ok": 12,
+      "statuses": {
+        "200": 12
+      },
+      "seconds": 111.9,
+      "throughput_rps": 0.107,
+      "latency_s": {
+        "mean": 17.594,
+        "p50": 14.601,
+        "p95": 25.483,
+        "p99": 25.483,
+        "max": 25.483
+      },
+      "options": "mode=hybrid, limit=10"
+    },
+    {
+      "endpoint": "search",
+      "concurrency": 4,
+      "requests": 12,
+      "ok": 12,
+      "statuses": {
+        "200": 12
+      },
+      "seconds": 96.9,
+      "throughput_rps": 0.124,
+      "latency_s": {
+        "mean": 32.269,
+        "p50": 29.302,
+        "p95": 44.224,
+        "p99": 44.224,
+        "max": 44.224
+      },
+      "options": "mode=hybrid, limit=10"
+    }
+  ]
+}

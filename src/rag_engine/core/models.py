@@ -158,3 +158,13 @@ class RetrievalResult:
     def document_ids(self) -> list[str]:
         """Distinct documents in the order their best chunk appears."""
         return list(dict.fromkeys(hit.doc_id for hit in self.hits))
+
+
+@dataclass(frozen=True, slots=True)
+class RateDecision:
+    """The outcome of counting one request against a client's limit."""
+
+    allowed: bool
+    limit: int
+    remaining: int
+    retry_after_seconds: int  # when the window ends, so when a refused client may try again

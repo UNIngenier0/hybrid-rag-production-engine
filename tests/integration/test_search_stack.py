@@ -76,3 +76,18 @@ def test_an_empty_query_is_rejected_before_any_search() -> None:
     response = httpx.post(f"{API_URL}/v1/search", json={"query": "  "}, timeout=30)
 
     assert response.status_code == 422
+
+
+def test_requests_are_counted_against_the_limit_in_the_stacks_redis() -> None:
+    first = search(mode="bm25")
+    second = search(mode="bm25")
+
+    if first.status_code == 401:
+        pytest.skip("this stack asks for an API key")
+    if "x-ratelimit-limit" not in first.headers:
+        pytest.skip("the search limit is off on this stack")
+    # Two requests of the same caller, counted by one Redis: the second sees one less left.
+    assert (
+        int(second.headers["x-ratelimit-remaining"])
+        == int(first.headers["x-ratelimit-remaining"]) - 1
+    )

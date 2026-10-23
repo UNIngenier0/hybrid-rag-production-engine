@@ -26,6 +26,13 @@ services:
       QUERY_CHUNKS: ${QUERY_CHUNKS:-5}
       # Decline, without calling the model, when the best reranker score is below this.
       ABSTAIN_THRESHOLD: ${ABSTAIN_THRESHOLD:-}
+      # "name:secret" pairs, comma separated. Empty leaves /v1/* open (development only).
+      API_KEYS: ${API_KEYS:-}
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+      RATE_LIMIT_SEARCH_PER_MINUTE: ${RATE_LIMIT_SEARCH_PER_MINUTE:-120}
+      RATE_LIMIT_QUERY_PER_MINUTE: ${RATE_LIMIT_QUERY_PER_MINUTE:-20}
+      QUERY_CACHE_TTL_SECONDS: ${QUERY_CACHE_TTL_SECONDS:-3600}
+      QUERY_CACHE_NAMESPACE: ${QUERY_CACHE_NAMESPACE:-v1}
     volumes:
       - hf_cache:/cache/huggingface
     depends_on:
